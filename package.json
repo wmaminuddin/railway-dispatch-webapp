@@ -1,0 +1,15 @@
+{
+  "name": "railway-dispatch-webapp",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @railway/web",
+    "dev:api": "npm run dev -w @railway/api",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces"
+  }
+}

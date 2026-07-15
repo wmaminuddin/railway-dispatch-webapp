@@ -1,0 +1,63 @@
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from "recharts";
+import type { SiteManpowerKpi } from "@railway/shared";
+import { InfoTooltip } from "../help";
+import { bottleneckSite, CHART_COLORS } from "./utils/chartData";
+
+type Props = {
+  manpower: SiteManpowerKpi[];
+};
+
+export function ManpowerChart({ manpower }: Props) {
+  if (!manpower.length) return <div className="chart-empty">No manpower data yet.</div>;
+  const bottleneck = bottleneckSite(manpower);
+
+  return (
+    <div className="chart-card">
+      <h3 className="chart-title-row">
+        <span>Manpower Planning</span>
+        <InfoTooltip helpKey="chartManpower" label="Manpower Planning chart" />
+      </h3>
+      <p className="chart-subtitle">
+        Handling hours by site
+        {bottleneck ? ` · Bottleneck: ${bottleneck.site} (${bottleneck.totalHandlingHours} h)` : ""}
+      </p>
+      <div className="chart-frame">
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={manpower}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="site" />
+            <YAxis yAxisId="left" />
+            <YAxis yAxisId="right" orientation="right" />
+            <Tooltip />
+            <Legend />
+            <Bar yAxisId="left" dataKey="totalHandlingHours" name="Handling hours" fill={CHART_COLORS.loading} radius={[4, 4, 0, 0]} />
+            <Bar yAxisId="right" dataKey="carsHandled" name="Cars handled" fill={CHART_COLORS.travel} radius={[4, 4, 0, 0]} />
+            <Bar
+              yAxisId="right"
+              dataKey="effectiveMinutesPerCar"
+              name="Eff. min/car"
+              fill={CHART_COLORS.departures}
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="legend-row">
+        {manpower.map((m) => (
+          <span key={m.site} className="legend-pill">
+            {m.site}: {m.teamMembers} pax
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
