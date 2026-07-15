@@ -110,9 +110,11 @@ export function LabelWithHelp({ text, helpKey, as = "span", className, children 
   const Tag = as;
   return (
     <Tag className={className ? `label-with-help ${className}` : "label-with-help"}>
-      <span className="label-with-help-text">{text}</span>
-      {helpKey ? <InfoTooltip helpKey={helpKey} label={text} /> : null}
-      {children}
+      <span className="label-with-help-content">
+        <span className="label-with-help-text">{text}</span>
+        {helpKey ? <InfoTooltip helpKey={helpKey} label={text} /> : null}
+        {children}
+      </span>
     </Tag>
   );
 }

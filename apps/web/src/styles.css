@@ -89,7 +89,7 @@ body {
 }
 
 .field-label-row,
-.label-with-help,
+.label-with-help-content,
 .chart-title-row,
 .kpi-with-help-label {
   display: inline-flex;
@@ -102,6 +102,7 @@ body {
 }
 
 th.label-with-help {
+  display: table-cell;
   white-space: nowrap;
 }
 
