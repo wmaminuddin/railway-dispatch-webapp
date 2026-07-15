@@ -1,16 +1,28 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type {
   ComparisonOutput,
   DailyReceipt,
   ScenarioMode,
   SimulationAssumptions,
+  SimulationInput,
   SimulationOutput
 } from "@railway/shared";
+import {
+  dailyNacTransferCapacity,
+  defaultAssumptions,
+  defaultScenarios,
+  maxTrainUnits,
+  minTrainUnits,
+  parseCsvReceipts,
+  parseReceiptRows,
+  runComparison,
+  runSimulation,
+  sampleReceipts,
+  validateInput
+} from "@railway/sim-core";
 import * as XLSX from "xlsx";
 import { ResultsDashboard } from "./components/results";
 import { InfoTooltip, KpiWithHelp, LabelWithHelp, type HelpKey } from "./components/help";
-
-const apiBase = import.meta.env.VITE_API_BASE ?? "http://localhost:4000/api/simulation";
 
 type DefaultsResponse = {
   assumptions: SimulationAssumptions;
@@ -21,6 +33,18 @@ type DefaultsResponse = {
     minTrainUnits: number;
     maxConsistLengthMeters: number;
   };
+};
+
+const defaults: DefaultsResponse = {
+  assumptions: defaultAssumptions,
+  sampleReceipts: sampleReceipts(defaultAssumptions.simulationDays, 400),
+  derived: {
+    dailyNacTransferCapacity: dailyNacTransferCapacity(defaultAssumptions),
+    maxTrainUnits: maxTrainUnits(defaultAssumptions),
+    minTrainUnits: minTrainUnits(defaultAssumptions),
+    maxConsistLengthMeters:
+      defaultAssumptions.wagons.maxWagonsPerTrain * defaultAssumptions.wagons.wagonLengthMeters
+  }
 };
 
 type FieldProps = {
@@ -42,9 +66,8 @@ const Field = ({ label, helpKey, children }: FieldProps) => (
 const num = (v: string) => Number(v);
 
 export function App() {
-  const [defaults, setDefaults] = useState<DefaultsResponse | null>(null);
-  const [assumptions, setAssumptions] = useState<SimulationAssumptions | null>(null);
-  const [receipts, setReceipts] = useState<DailyReceipt[]>([]);
+  const [assumptions, setAssumptions] = useState<SimulationAssumptions>(() => structuredClone(defaults.assumptions));
+  const [receipts, setReceipts] = useState<DailyReceipt[]>(() => structuredClone(defaults.sampleReceipts));
   const [scenarioMode, setScenarioMode] = useState<ScenarioMode>("AV_ONLY");
   const [runMode, setRunMode] = useState<"SINGLE" | "COMPARE">("SINGLE");
   const [result, setResult] = useState<SimulationOutput | null>(null);
@@ -54,19 +77,7 @@ export function App() {
   const [selectedLoadId, setSelectedLoadId] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetch(`${apiBase}/defaults`)
-      .then((r) => r.json())
-      .then((d: DefaultsResponse) => {
-        setDefaults(d);
-        setAssumptions(d.assumptions);
-        setReceipts(d.sampleReceipts);
-      })
-      .catch(() => setError("Failed to load defaults. Is the API running on port 4000?"));
-  }, []);
-
   const derived = useMemo(() => {
-    if (!assumptions) return null;
     const transfer = Math.floor(
       (assumptions.movement.nacOperatingHoursPerDay * 60 * assumptions.movement.nacDriversOrLanes) /
         Math.max(1, assumptions.movement.nacToSftTactMinutes)
@@ -86,12 +97,8 @@ export function App() {
   const activeResult = result ?? comparison?.avOnly ?? null;
   const selectedLoad = activeResult?.loads.find((l) => l.id === selectedLoadId) ?? activeResult?.loads[0];
 
-  if (!assumptions) {
-    return <div className="shell">{error ?? "Loading..."}</div>;
-  }
-
   const patch = <K extends keyof SimulationAssumptions>(key: K, value: SimulationAssumptions[K]) =>
-    setAssumptions((prev) => (prev ? { ...prev, [key]: value } : prev));
+    setAssumptions((prev) => ({ ...prev, [key]: value }));
 
   const updateReceipt = (index: number, unitsReceived: number) => {
     setReceipts((prev) => prev.map((r, i) => (i === index ? { ...r, unitsReceived } : r)));
@@ -111,32 +118,23 @@ export function App() {
   const onImportFile = async (file: File) => {
     setError(null);
     try {
+      let importedReceipts: DailyReceipt[];
       if (file.name.toLowerCase().endsWith(".csv")) {
-        const text = await file.text();
-        const resp = await fetch(`${apiBase}/import-schedule`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ csvText: text, filename: file.name })
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.errors?.join(" ") ?? "Import failed");
-        setReceipts(data.receipts);
-        patch("simulationDays", Math.max(...data.receipts.map((r: DailyReceipt) => r.day)));
+        importedReceipts = parseCsvReceipts(await file.text());
       } else {
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf);
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
-        const resp = await fetch(`${apiBase}/import-schedule`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rows, filename: file.name })
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.errors?.join(" ") ?? "Import failed");
-        setReceipts(data.receipts);
-        patch("simulationDays", Math.max(...data.receipts.map((r: DailyReceipt) => r.day)));
+        importedReceipts = parseReceiptRows(rows);
       }
+      if (!importedReceipts.length) {
+        throw new Error(
+          `No valid day/units rows found in ${file.name}. Expected columns like day, unitsReceived.`
+        );
+      }
+      setReceipts(importedReceipts);
+      patch("simulationDays", Math.max(...importedReceipts.map((r) => r.day)));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed");
     }
@@ -148,26 +146,20 @@ export function App() {
     setResult(null);
     setComparison(null);
     try {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
       if (runMode === "COMPARE") {
-        const resp = await fetch(`${apiBase}/compare`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ assumptions, receipts })
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.errors?.join(" ") ?? "Compare failed");
+        const probe: SimulationInput = { assumptions, receipts, scenario: defaultScenarios[0] };
+        const errors = validateInput(probe);
+        if (errors.length) throw new Error(errors.join(" "));
+        const outputs = runComparison(assumptions, receipts);
+        const data: ComparisonOutput = { assumptions, receipts, ...outputs };
         setComparison(data);
         setResult(data.avOnly);
         setSelectedLoadId(data.avOnly.loads[0]?.id ?? null);
         setSelectedDay(data.avOnly.days[0]?.day ?? null);
       } else {
-        const resp = await fetch(`${apiBase}/run`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ assumptions, receipts, scenarioMode })
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.errors?.join(" ") ?? "Run failed");
+        const scenario = defaultScenarios.find((item) => item.mode === scenarioMode) ?? defaultScenarios[0];
+        const data = runSimulation({ assumptions, receipts, scenario });
         setResult(data);
         setSelectedLoadId(data.loads[0]?.id ?? null);
         setSelectedDay(data.days[0]?.day ?? null);

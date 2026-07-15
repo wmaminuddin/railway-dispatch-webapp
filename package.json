@@ -10,6 +10,10 @@
     "dev": "npm run dev -w @railway/web",
     "dev:api": "npm run dev -w @railway/api",
     "build": "npm run build --workspaces",
-    "test": "npm run test --workspaces"
+    "test": "npm run test --workspaces",
+    "deploy:pages": "npm run build:pages -w @railway/web && gh-pages -d apps/web/dist -m \"Deploy GitHub Pages site\" -u \"User <user@users.noreply.github.com>\""
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
   }
 }
