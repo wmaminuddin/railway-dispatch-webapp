@@ -1,6 +1,7 @@
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ComparisonOutput } from "@railway/shared";
 import { InfoTooltip } from "../help";
+import { formatChartNumber } from "../../utils/formatNumber";
 import { CHART_COLORS, toComparisonPoints } from "./utils/chartData";
 
 type Props = {
@@ -31,8 +32,8 @@ export function ScenarioComparisonChart({ comparison, onSelectScenario }: Props)
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis dataKey="metric" interval={0} angle={-15} textAnchor="end" height={60} />
-            <YAxis />
-            <Tooltip />
+            <YAxis tickFormatter={formatChartNumber} />
+            <Tooltip formatter={(value) => formatChartNumber(value)} />
             <Legend />
             <Bar dataKey="avOnly" name="AV Only" fill={CHART_COLORS.nac} radius={[4, 4, 0, 0]} />
             <Bar dataKey="avAndNav" name="AV + NAV" fill={CHART_COLORS.sft} radius={[4, 4, 0, 0]} />

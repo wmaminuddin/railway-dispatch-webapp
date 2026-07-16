@@ -1,5 +1,6 @@
 import type { ComparisonOutput, SimulationOutput } from "@railway/shared";
 import { InfoTooltip } from "../help";
+import { formatNumber } from "../../utils/formatNumber";
 import { InventoryFlowChart } from "./InventoryFlowChart";
 import { DeliveryChart } from "./DeliveryChart";
 import { ManpowerChart } from "./ManpowerChart";
@@ -48,7 +49,7 @@ export function ResultsDashboard({
             <select value={selectedLoad?.id ?? ""} onChange={(e) => onSelectLoad(e.target.value)}>
               {result.loads.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.id} · Day {l.day} · {l.wagonCount} wagons · {l.totalUnits} cars
+                  {l.id} · Day {l.day} · {formatNumber(l.wagonCount)} wagons · {formatNumber(l.totalUnits)} cars
                 </option>
               ))}
             </select>

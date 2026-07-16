@@ -1,5 +1,6 @@
 import type { TrainLoadLog } from "@railway/shared";
 import { InfoTooltip } from "../help";
+import { formatNumber } from "../../utils/formatNumber";
 import { classifyWagons } from "./utils/chartData";
 
 type Props = {
@@ -26,12 +27,12 @@ export function TrainConsistDiagram({ load, stationLengthMeters }: Props) {
     <div className="chart-card">
       <h3 className="chart-title-row">
         <span>
-          Train Consist — {load.id} ({load.consistLengthMeters} m)
+          Train Consist — {load.id} ({formatNumber(load.consistLengthMeters)} m)
         </span>
         <InfoTooltip helpKey="chartConsist" label="Train Consist diagram" />
       </h3>
       <p className="chart-subtitle">
-        EC / EM / mixed wagons with station-length marker at {stationLengthMeters} m
+        EC / EM / mixed wagons with station-length marker at {formatNumber(stationLengthMeters)} m
       </p>
       <div className="consist-wrap">
         <svg viewBox={`0 0 ${width} ${height}`} className="consist-svg" role="img" aria-label="Train consist diagram">
@@ -46,7 +47,7 @@ export function TrainConsistDiagram({ load, stationLengthMeters }: Props) {
             strokeDasharray="5 4"
           />
           <text x={stationX + 6} y={16} fill="#c0392b" fontSize="11">
-            Station {stationLengthMeters} m
+            Station {formatNumber(stationLengthMeters)} m
           </text>
 
           {wagons.map((w) => {
@@ -69,7 +70,7 @@ export function TrainConsistDiagram({ load, stationLengthMeters }: Props) {
                   W{w.wagonIndex}
                 </text>
                 <text x={x + wWidth / 2} y={trackY + 28} textAnchor="middle" fill="#f8fafc" fontSize="9">
-                  {w.cars}
+                  {formatNumber(w.cars)}
                 </text>
                 {w.overlength && (
                   <text x={x + wWidth / 2} y={trackY - 6} textAnchor="middle" fill="#7f1d1d" fontSize="9">
@@ -88,7 +89,8 @@ export function TrainConsistDiagram({ load, stationLengthMeters }: Props) {
         <span className="legend-swatch overlength">Overlength border</span>
       </div>
       <div className="chart-note">
-        {load.eastCoastUnits} EC · {load.eastMalaysiaUnits} EM · {load.overlengthCars} overlength cars
+        {formatNumber(load.eastCoastUnits)} EC · {formatNumber(load.eastMalaysiaUnits)} EM ·{" "}
+        {formatNumber(load.overlengthCars)} overlength cars
         {load.hasMixedWagons ? " · mixed wagons present" : ""}
       </div>
     </div>

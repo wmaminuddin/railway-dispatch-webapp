@@ -1,5 +1,6 @@
 import type { TrainLoadLog } from "@railway/shared";
 import { InfoTooltip } from "../help";
+import { formatNumber } from "../../utils/formatNumber";
 import { normalizeTimelineEvents, timelineEventColor } from "./utils/chartData";
 
 type Props = {
@@ -27,7 +28,8 @@ export function CycleTimeline({ load }: Props) {
         <InfoTooltip helpKey="chartTimeline" label="Cycle Timeline" />
       </h3>
       <p className="chart-subtitle">
-        Total cycle {load.cycleMinutes} min · mixed-wagon block {load.mixedWagonBlockingMinutes} min
+        Total cycle {formatNumber(load.cycleMinutes)} min · mixed-wagon block{" "}
+        {formatNumber(load.mixedWagonBlockingMinutes)} min
       </p>
       <div className="timeline-wrap">
         <svg viewBox={`0 0 ${width} ${height}`} className="timeline-svg" role="img" aria-label="Train cycle timeline">
@@ -44,12 +46,12 @@ export function CycleTimeline({ load }: Props) {
                 </text>
                 <rect x={x} y={y + 4} width={w} height={18} rx={4} fill={color} opacity={0.9}>
                   <title>
-                    {e.description} ({duration} min)
+                    {e.description} ({formatNumber(duration)} min)
                   </title>
                 </rect>
                 {w > 40 && (
                   <text x={x + 6} y={y + 16} fontSize="9" fill="#fff">
-                    {duration}m
+                    {formatNumber(duration)}m
                   </text>
                 )}
               </g>

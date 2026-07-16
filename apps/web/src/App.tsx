@@ -23,6 +23,7 @@ import {
 import * as XLSX from "xlsx";
 import { ResultsDashboard } from "./components/results";
 import { InfoTooltip, KpiWithHelp, LabelWithHelp, type HelpKey } from "./components/help";
+import { formatFixed, formatNumber } from "./utils/formatNumber";
 
 type DefaultsResponse = {
   assumptions: SimulationAssumptions;
@@ -520,29 +521,33 @@ export function App() {
             <KpiWithHelp
               label="NAC→SFT capacity"
               helpKey="derivedTransfer"
-              value={`${derived.dailyNacTransferCapacity} cars/day`}
+              value={`${formatNumber(derived.dailyNacTransferCapacity)} cars/day`}
             />
             <KpiWithHelp
               label="Min profitable load"
               helpKey="derivedMinLoad"
-              value={`${derived.minTrainUnits} cars`}
+              value={`${formatNumber(derived.minTrainUnits)} cars`}
             />
-            <KpiWithHelp label="Max train load" helpKey="derivedMaxLoad" value={`${derived.maxTrainUnits} cars`} />
+            <KpiWithHelp
+              label="Max train load"
+              helpKey="derivedMaxLoad"
+              value={`${formatNumber(derived.maxTrainUnits)} cars`}
+            />
             <KpiWithHelp
               label="Max consist length"
               helpKey="derivedConsist"
-              value={`${derived.maxConsistLengthMeters} m`}
+              value={`${formatNumber(derived.maxConsistLengthMeters)} m`}
             />
             <KpiWithHelp
               label="SFT loading rate"
               helpKey="derivedSftRate"
-              value={`${derived.sftCarsPerHour.toFixed(1)} cars/hour`}
+              value={`${formatFixed(derived.sftCarsPerHour, 1)} cars/hour`}
             />
             {defaults && (
               <KpiWithHelp
                 label="Default transfer check"
                 helpKey="derivedTransfer"
-                value={`${defaults.derived.dailyNacTransferCapacity} cars/day`}
+                value={`${formatNumber(defaults.derived.dailyNacTransferCapacity)} cars/day`}
               />
             )}
           </div>
@@ -556,19 +561,35 @@ export function App() {
             {[comparison.avOnly, comparison.avAndNav].map((out) => (
               <div key={out.scenario.mode} className="compare-card">
                 <h3>{out.kpis.scenarioName}</h3>
-                <KpiWithHelp label="Dispatched" helpKey="kpiDispatched" value={out.kpis.totalUnitsDispatched} />
-                <KpiWithHelp label="Departures" helpKey="kpiDepartures" value={out.kpis.totalDepartures} />
-                <KpiWithHelp label="Ending SFT" helpKey="kpiEndingSft" value={out.kpis.endingSftInventory} />
-                <KpiWithHelp label="Ending NAC backlog" helpKey="kpiEndingNac" value={out.kpis.endingNacBacklog} />
+                <KpiWithHelp
+                  label="Dispatched"
+                  helpKey="kpiDispatched"
+                  value={formatNumber(out.kpis.totalUnitsDispatched)}
+                />
+                <KpiWithHelp
+                  label="Departures"
+                  helpKey="kpiDepartures"
+                  value={formatNumber(out.kpis.totalDepartures)}
+                />
+                <KpiWithHelp
+                  label="Ending SFT"
+                  helpKey="kpiEndingSft"
+                  value={formatNumber(out.kpis.endingSftInventory)}
+                />
+                <KpiWithHelp
+                  label="Ending NAC backlog"
+                  helpKey="kpiEndingNac"
+                  value={formatNumber(out.kpis.endingNacBacklog)}
+                />
                 <KpiWithHelp
                   label="Avg cycle"
                   helpKey="kpiAvgCycle"
-                  value={`${out.kpis.averageCycleMinutes} min`}
+                  value={`${formatNumber(out.kpis.averageCycleMinutes)} min`}
                 />
                 <KpiWithHelp
                   label="Mixed-wagon penalty"
                   helpKey="kpiMixedPenalty"
-                  value={`${out.kpis.mixedWagonPenaltyMinutes} min`}
+                  value={`${formatNumber(out.kpis.mixedWagonPenaltyMinutes)} min`}
                 />
                 <button
                   onClick={() => {
@@ -614,18 +635,46 @@ export function App() {
           <section className="panel">
             <h2>KPIs — {activeResult.kpis.scenarioName}</h2>
             <div className="kpis">
-              <KpiWithHelp label="Received" helpKey="kpiReceived" value={activeResult.kpis.totalReceived} />
-              <KpiWithHelp label="Eligible" helpKey="kpiEligible" value={activeResult.kpis.totalEligible} />
-              <KpiWithHelp label="Moved to SFT" helpKey="kpiMovedSft" value={activeResult.kpis.totalMovedToSft} />
-              <KpiWithHelp label="Dispatched" helpKey="kpiDispatched" value={activeResult.kpis.totalUnitsDispatched} />
-              <KpiWithHelp label="Departures" helpKey="kpiDepartures" value={activeResult.kpis.totalDepartures} />
-              <KpiWithHelp label="EC delivered" helpKey="kpiEcDelivered" value={activeResult.kpis.eastCoastDelivered} />
+              <KpiWithHelp
+                label="Received"
+                helpKey="kpiReceived"
+                value={formatNumber(activeResult.kpis.totalReceived)}
+              />
+              <KpiWithHelp
+                label="Eligible"
+                helpKey="kpiEligible"
+                value={formatNumber(activeResult.kpis.totalEligible)}
+              />
+              <KpiWithHelp
+                label="Moved to SFT"
+                helpKey="kpiMovedSft"
+                value={formatNumber(activeResult.kpis.totalMovedToSft)}
+              />
+              <KpiWithHelp
+                label="Dispatched"
+                helpKey="kpiDispatched"
+                value={formatNumber(activeResult.kpis.totalUnitsDispatched)}
+              />
+              <KpiWithHelp
+                label="Departures"
+                helpKey="kpiDepartures"
+                value={formatNumber(activeResult.kpis.totalDepartures)}
+              />
+              <KpiWithHelp
+                label="EC delivered"
+                helpKey="kpiEcDelivered"
+                value={formatNumber(activeResult.kpis.eastCoastDelivered)}
+              />
               <KpiWithHelp
                 label="EM delivered"
                 helpKey="kpiEmDelivered"
-                value={activeResult.kpis.eastMalaysiaDelivered}
+                value={formatNumber(activeResult.kpis.eastMalaysiaDelivered)}
               />
-              <KpiWithHelp label="Max SFT" helpKey="kpiMaxSft" value={activeResult.kpis.maxSftInventory} />
+              <KpiWithHelp
+                label="Max SFT"
+                helpKey="kpiMaxSft"
+                value={formatNumber(activeResult.kpis.maxSftInventory)}
+              />
               <KpiWithHelp
                 label="SFT congestion"
                 helpKey="kpiSftCongestion"
@@ -634,28 +683,36 @@ export function App() {
               <KpiWithHelp
                 label="Days to SFT full"
                 helpKey="kpiDaysSftFull"
-                value={activeResult.kpis.daysToSftFull ?? "—"}
+                value={
+                  activeResult.kpis.daysToSftFull == null
+                    ? "—"
+                    : formatNumber(activeResult.kpis.daysToSftFull)
+                }
               />
               <KpiWithHelp
                 label="Avg cycle"
                 helpKey="kpiAvgCycle"
-                value={`${activeResult.kpis.averageCycleMinutes} min`}
+                value={`${formatNumber(activeResult.kpis.averageCycleMinutes)} min`}
               />
               <KpiWithHelp
                 label="Max cycle"
                 helpKey="kpiMaxCycle"
-                value={`${activeResult.kpis.maxCycleMinutes} min`}
+                value={`${formatNumber(activeResult.kpis.maxCycleMinutes)} min`}
               />
               <KpiWithHelp
                 label="Below-profit loads"
                 helpKey="kpiBelowProfit"
-                value={activeResult.kpis.belowProfitabilityLoads}
+                value={formatNumber(activeResult.kpis.belowProfitabilityLoads)}
               />
-              <KpiWithHelp label="Overlength cars" helpKey="kpiOverlengthCars" value={activeResult.kpis.overlengthCars} />
+              <KpiWithHelp
+                label="Overlength cars"
+                helpKey="kpiOverlengthCars"
+                value={formatNumber(activeResult.kpis.overlengthCars)}
+              />
               <KpiWithHelp
                 label="Mixed-wagon penalty"
                 helpKey="kpiMixedPenalty"
-                value={`${activeResult.kpis.mixedWagonPenaltyMinutes} min`}
+                value={`${formatNumber(activeResult.kpis.mixedWagonPenaltyMinutes)} min`}
               />
             </div>
           </section>
@@ -666,10 +723,26 @@ export function App() {
               {activeResult.kpis.manpower.map((m) => (
                 <div key={m.site} className="kpi-with-help">
                   <strong>{m.site}</strong>
-                  <KpiWithHelp label="Team" helpKey="manpowerTeam" value={`${m.teamMembers} pax`} />
-                  <KpiWithHelp label="Handling" helpKey="manpowerHours" value={`${m.totalHandlingHours} h`} />
-                  <KpiWithHelp label="Cars" helpKey="manpowerCars" value={m.carsHandled} />
-                  <KpiWithHelp label="Eff. min/car" helpKey="manpowerEff" value={m.effectiveMinutesPerCar} />
+                  <KpiWithHelp
+                    label="Team"
+                    helpKey="manpowerTeam"
+                    value={`${formatNumber(m.teamMembers)} pax`}
+                  />
+                  <KpiWithHelp
+                    label="Handling"
+                    helpKey="manpowerHours"
+                    value={`${formatNumber(m.totalHandlingHours)} h`}
+                  />
+                  <KpiWithHelp
+                    label="Cars"
+                    helpKey="manpowerCars"
+                    value={formatNumber(m.carsHandled)}
+                  />
+                  <KpiWithHelp
+                    label="Eff. min/car"
+                    helpKey="manpowerEff"
+                    value={formatNumber(m.effectiveMinutesPerCar)}
+                  />
                 </div>
               ))}
             </div>
@@ -698,16 +771,16 @@ export function App() {
                   {activeResult.days.map((d) => (
                     <tr key={d.day}>
                       <td>{d.day}</td>
-                      <td>{d.nacReceived}</td>
-                      <td>{d.eligibleReceived}</td>
-                      <td>{d.nacToSftMoved}</td>
-                      <td>{d.nacBacklogEnd}</td>
-                      <td>{d.sftClosing}</td>
-                      <td>{(d.sftOccupancy * 100).toFixed(1)}%</td>
-                      <td>{d.departures}</td>
-                      <td>{d.unitsDispatched}</td>
-                      <td>{d.eastCoastDelivered}</td>
-                      <td>{d.eastMalaysiaDelivered}</td>
+                      <td>{formatNumber(d.nacReceived)}</td>
+                      <td>{formatNumber(d.eligibleReceived)}</td>
+                      <td>{formatNumber(d.nacToSftMoved)}</td>
+                      <td>{formatNumber(d.nacBacklogEnd)}</td>
+                      <td>{formatNumber(d.sftClosing)}</td>
+                      <td>{formatFixed(d.sftOccupancy * 100, 1)}%</td>
+                      <td>{formatNumber(d.departures)}</td>
+                      <td>{formatNumber(d.unitsDispatched)}</td>
+                      <td>{formatNumber(d.eastCoastDelivered)}</td>
+                      <td>{formatNumber(d.eastMalaysiaDelivered)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -746,14 +819,14 @@ export function App() {
                       <td>{l.id}</td>
                       <td>{l.day}</td>
                       <td>{l.trainsetId}</td>
-                      <td>{l.wagonCount}</td>
-                      <td>{l.totalUnits}</td>
+                      <td>{formatNumber(l.wagonCount)}</td>
+                      <td>{formatNumber(l.totalUnits)}</td>
                       <td>
-                        {l.eastCoastUnits}/{l.eastMalaysiaUnits}
+                        {formatNumber(l.eastCoastUnits)}/{formatNumber(l.eastMalaysiaUnits)}
                       </td>
-                      <td>{l.cycleMinutes}</td>
+                      <td>{formatNumber(l.cycleMinutes)}</td>
                       <td>{l.hasMixedWagons ? "YES" : "NO"}</td>
-                      <td>{l.mixedWagonBlockingMinutes}</td>
+                      <td>{formatNumber(l.mixedWagonBlockingMinutes)}</td>
                       <td>{l.belowProfitableMinimum ? "YES" : "NO"}</td>
                     </tr>
                   ))}
@@ -764,7 +837,7 @@ export function App() {
             {selectedLoad && (
               <div className="load-detail">
                 <h3>
-                  {selectedLoad.id} detail — consist {selectedLoad.consistLengthMeters} m
+                  {selectedLoad.id} detail — consist {formatNumber(selectedLoad.consistLengthMeters)} m
                 </h3>
                 {selectedLoad.notes.length > 0 && (
                   <ul>
@@ -790,10 +863,10 @@ export function App() {
                           <tr key={w.wagonIndex}>
                             <td>{w.wagonIndex}</td>
                             <td>{w.purity}</td>
-                            <td>{w.eastCoastUnits}</td>
-                            <td>{w.eastMalaysiaUnits}</td>
+                            <td>{formatNumber(w.eastCoastUnits)}</td>
+                            <td>{formatNumber(w.eastMalaysiaUnits)}</td>
                             <td>
-                              {w.startMeter}-{w.endMeter}
+                              {formatNumber(w.startMeter)}-{formatNumber(w.endMeter)}
                             </td>
                           </tr>
                         ))}
@@ -814,8 +887,8 @@ export function App() {
                         {selectedLoad.events.map((e, idx) => (
                           <tr key={`${e.type}-${idx}`}>
                             <td>{e.type}</td>
-                            <td>{e.startMinute}</td>
-                            <td>{e.endMinute}</td>
+                            <td>{formatNumber(e.startMinute)}</td>
+                            <td>{formatNumber(e.endMinute)}</td>
                             <td>{e.description}</td>
                           </tr>
                         ))}

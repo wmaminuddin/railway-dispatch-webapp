@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import type { DailySnapshot } from "@railway/shared";
 import { InfoTooltip } from "../help";
+import { formatChartNumber, formatNumber } from "../../utils/formatNumber";
 import { CHART_COLORS, toInventoryPoints } from "./utils/chartData";
 
 type Props = {
@@ -42,10 +43,15 @@ export function InventoryFlowChart({ days, sftCapacity, selectedDay, onSelectDay
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis dataKey="day" label={{ value: "Day", position: "insideBottom", offset: -2 }} />
-            <YAxis />
-            <Tooltip />
+            <YAxis tickFormatter={formatChartNumber} />
+            <Tooltip formatter={(value) => formatChartNumber(value)} />
             <Legend />
-            <ReferenceLine y={sftCapacity} stroke={CHART_COLORS.capacity} strokeDasharray="4 4" label="SFT capacity" />
+            <ReferenceLine
+              y={sftCapacity}
+              stroke={CHART_COLORS.capacity}
+              strokeDasharray="4 4"
+              label={`SFT capacity ${formatNumber(sftCapacity)}`}
+            />
             {selectedDay != null && (
               <ReferenceLine x={selectedDay} stroke="#94a3b8" strokeDasharray="2 2" />
             )}

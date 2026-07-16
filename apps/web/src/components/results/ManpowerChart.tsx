@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import type { SiteManpowerKpi } from "@railway/shared";
 import { InfoTooltip } from "../help";
+import { formatChartNumber, formatNumber } from "../../utils/formatNumber";
 import { bottleneckSite, CHART_COLORS } from "./utils/chartData";
 
 type Props = {
@@ -28,16 +29,18 @@ export function ManpowerChart({ manpower }: Props) {
       </h3>
       <p className="chart-subtitle">
         Handling hours by site
-        {bottleneck ? ` · Bottleneck: ${bottleneck.site} (${bottleneck.totalHandlingHours} h)` : ""}
+        {bottleneck
+          ? ` · Bottleneck: ${bottleneck.site} (${formatNumber(bottleneck.totalHandlingHours)} h)`
+          : ""}
       </p>
       <div className="chart-frame">
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={manpower}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis dataKey="site" />
-            <YAxis yAxisId="left" />
-            <YAxis yAxisId="right" orientation="right" />
-            <Tooltip />
+            <YAxis yAxisId="left" tickFormatter={formatChartNumber} />
+            <YAxis yAxisId="right" orientation="right" tickFormatter={formatChartNumber} />
+            <Tooltip formatter={(value) => formatChartNumber(value)} />
             <Legend />
             <Bar yAxisId="left" dataKey="totalHandlingHours" name="Handling hours" fill={CHART_COLORS.loading} radius={[4, 4, 0, 0]} />
             <Bar yAxisId="right" dataKey="carsHandled" name="Cars handled" fill={CHART_COLORS.travel} radius={[4, 4, 0, 0]} />
@@ -54,7 +57,7 @@ export function ManpowerChart({ manpower }: Props) {
       <div className="legend-row">
         {manpower.map((m) => (
           <span key={m.site} className="legend-pill">
-            {m.site}: {m.teamMembers} pax
+            {m.site}: {formatNumber(m.teamMembers)} pax
           </span>
         ))}
       </div>

@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import type { DailySnapshot } from "@railway/shared";
 import { InfoTooltip } from "../help";
+import { formatChartNumber } from "../../utils/formatNumber";
 import { CHART_COLORS, toDeliveryPoints } from "./utils/chartData";
 
 type Props = {
@@ -41,9 +42,9 @@ export function DeliveryChart({ days, selectedDay, onSelectDay }: Props) {
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis dataKey="day" />
-            <YAxis yAxisId="left" />
-            <YAxis yAxisId="right" orientation="right" allowDecimals={false} />
-            <Tooltip />
+            <YAxis yAxisId="left" tickFormatter={formatChartNumber} />
+            <YAxis yAxisId="right" orientation="right" allowDecimals={false} tickFormatter={formatChartNumber} />
+            <Tooltip formatter={(value) => formatChartNumber(value)} />
             <Legend />
             <Bar
               yAxisId="left"
