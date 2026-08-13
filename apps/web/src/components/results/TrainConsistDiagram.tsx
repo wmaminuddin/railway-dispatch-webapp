@@ -1,6 +1,6 @@
 import type { TrainLoadLog } from "@railway/shared";
-import { InfoTooltip } from "../help";
 import { formatNumber } from "../../utils/formatNumber";
+import { ChartCard } from "./ChartCard";
 import { classifyWagons } from "./utils/chartData";
 
 type Props = {
@@ -24,16 +24,16 @@ export function TrainConsistDiagram({ load, stationLengthMeters }: Props) {
   const stationX = padX + stationLengthMeters * scale;
 
   return (
-    <div className="chart-card">
-      <h3 className="chart-title-row">
-        <span>
+    <ChartCard
+      title={
+        <>
           Train Consist — {load.id} ({formatNumber(load.consistLengthMeters)} m)
-        </span>
-        <InfoTooltip helpKey="chartConsist" label="Train Consist diagram" />
-      </h3>
-      <p className="chart-subtitle">
-        EC / EM / mixed wagons with station-length marker at {formatNumber(stationLengthMeters)} m
-      </p>
+        </>
+      }
+      subtitle={`EC / EM / mixed wagons with station-length marker at ${formatNumber(stationLengthMeters)} m`}
+      helpKey="chartConsist"
+      helpLabel="Train Consist diagram"
+    >
       <div className="consist-wrap">
         <svg viewBox={`0 0 ${width} ${height}`} className="consist-svg" role="img" aria-label="Train consist diagram">
           <line x1={padX} y1={trackY + 28} x2={padX + usable} y2={trackY + 28} stroke="#cbd5e1" strokeWidth={4} />
@@ -93,6 +93,6 @@ export function TrainConsistDiagram({ load, stationLengthMeters }: Props) {
         {formatNumber(load.overlengthCars)} overlength cars
         {load.hasMixedWagons ? " · mixed wagons present" : ""}
       </div>
-    </div>
+    </ChartCard>
   );
 }

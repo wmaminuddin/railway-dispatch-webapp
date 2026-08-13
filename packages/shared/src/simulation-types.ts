@@ -79,6 +79,10 @@ export type SimulationInput = {
   assumptions: SimulationAssumptions;
   scenario: ScenarioConfig;
   receipts: DailyReceipt[];
+  /** Already-eligible cars waiting at NAC at day 0 (default 0). */
+  openingNacUnits?: number;
+  /** Cars already parked at SFT at day 0 (default 0). May exceed parking capacity. */
+  openingSftUnits?: number;
 };
 
 export type VehicleLot = {
@@ -136,6 +140,8 @@ export type DailySnapshot = {
   nacToSftMoved: number;
   nacBacklogEnd: number;
   sftOpening: number;
+  /** SFT stock after NAC→SFT transfers, before train departures. */
+  sftAfterTransfer: number;
   sftClosing: number;
   sftOccupancy: number;
   sftCapacityBlocked: number;
@@ -184,17 +190,36 @@ export type SimulationKpis = {
   manpower: SiteManpowerKpi[];
 };
 
+/** Step sample of site stock / on-site cars at an absolute simulation minute. */
+export type InventorySample = {
+  minute: number;
+  nac: number;
+  sft: number;
+  /** Cars on site during Paya Besar shunt / unload / wait windows. */
+  payaBesar: number;
+  /** Cars on site during Kuantan Port shunt / unload windows. */
+  kuantanPort: number;
+};
+
 export type SimulationOutput = {
   assumptions: SimulationAssumptions;
   scenario: ScenarioConfig;
   days: DailySnapshot[];
   loads: TrainLoadLog[];
+  /** Minute-level step timeline for hourly site inventory charts. */
+  inventoryTimeline: InventorySample[];
   kpis: SimulationKpis;
+  /** Normalized day-0 NAC opening used for this run. */
+  openingNacUnits: number;
+  /** Normalized day-0 SFT opening used for this run. */
+  openingSftUnits: number;
 };
 
 export type ComparisonOutput = {
   assumptions: SimulationAssumptions;
   receipts: DailyReceipt[];
+  openingNacUnits: number;
+  openingSftUnits: number;
   avOnly: SimulationOutput;
   avAndNav: SimulationOutput;
 };

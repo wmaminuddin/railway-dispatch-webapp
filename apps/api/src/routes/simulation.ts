@@ -48,7 +48,9 @@ router.post("/run", (req, res) => {
     const mode = req.body.scenarioMode === "AV_AND_NAV" ? "AV_AND_NAV" : "AV_ONLY";
     const scenario = defaultScenarios.find((s) => s.mode === mode) ?? defaultScenarios[0];
     const receipts = (req.body.receipts as DailyReceipt[]) ?? sampleReceipts(assumptions.simulationDays);
-    const input: SimulationInput = { assumptions, scenario, receipts };
+    const openingNacUnits = req.body.openingNacUnits as number | undefined;
+    const openingSftUnits = req.body.openingSftUnits as number | undefined;
+    const input: SimulationInput = { assumptions, scenario, receipts, openingNacUnits, openingSftUnits };
     const errors = validateInput(input);
     if (errors.length) return res.status(400).json({ errors });
     res.json(runSimulation(input));
@@ -61,15 +63,19 @@ router.post("/compare", (req, res) => {
   try {
     const assumptions = asAssumptions(req.body.assumptions);
     const receipts = (req.body.receipts as DailyReceipt[]) ?? sampleReceipts(assumptions.simulationDays);
+    const openingNacUnits = req.body.openingNacUnits as number | undefined;
+    const openingSftUnits = req.body.openingSftUnits as number | undefined;
     const probe: SimulationInput = {
       assumptions,
       receipts,
-      scenario: defaultScenarios[0]
+      scenario: defaultScenarios[0],
+      openingNacUnits,
+      openingSftUnits
     };
     const errors = validateInput(probe);
     if (errors.length) return res.status(400).json({ errors });
-    const { avOnly, avAndNav } = runComparison(assumptions, receipts);
-    res.json({ assumptions, receipts, avOnly, avAndNav });
+    const { avOnly, avAndNav } = runComparison(assumptions, receipts, { openingNacUnits, openingSftUnits });
+    res.json({ assumptions, receipts, openingNacUnits: avOnly.openingNacUnits, openingSftUnits: avOnly.openingSftUnits, avOnly, avAndNav });
   } catch (err) {
     res.status(400).json({ errors: [err instanceof Error ? err.message : "Comparison failed"] });
   }

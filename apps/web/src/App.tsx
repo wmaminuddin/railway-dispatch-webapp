@@ -21,7 +21,7 @@ import {
   validateInput
 } from "@railway/sim-core";
 import * as XLSX from "xlsx";
-import { ResultsDashboard } from "./components/results";
+import { ResultsDashboard, ResultsNarrative } from "./components/results";
 import { InfoTooltip, KpiWithHelp, LabelWithHelp, type HelpKey } from "./components/help";
 import { formatFixed, formatNumber } from "./utils/formatNumber";
 
@@ -69,6 +69,8 @@ const num = (v: string) => Number(v);
 export function App() {
   const [assumptions, setAssumptions] = useState<SimulationAssumptions>(() => structuredClone(defaults.assumptions));
   const [receipts, setReceipts] = useState<DailyReceipt[]>(() => structuredClone(defaults.sampleReceipts));
+  const [openingNacUnits, setOpeningNacUnits] = useState(0);
+  const [openingSftUnits, setOpeningSftUnits] = useState(0);
   const [scenarioMode, setScenarioMode] = useState<ScenarioMode>("AV_ONLY");
   const [runMode, setRunMode] = useState<"SINGLE" | "COMPARE">("SINGLE");
   const [result, setResult] = useState<SimulationOutput | null>(null);
@@ -77,6 +79,9 @@ export function App() {
   const [running, setRunning] = useState(false);
   const [selectedLoadId, setSelectedLoadId] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [bulkDailyVolume, setBulkDailyVolume] = useState(
+    () => defaults.sampleReceipts[0]?.unitsReceived ?? 400
+  );
 
   const derived = useMemo(() => {
     const transfer = Math.floor(
@@ -103,6 +108,12 @@ export function App() {
 
   const updateReceipt = (index: number, unitsReceived: number) => {
     setReceipts((prev) => prev.map((r, i) => (i === index ? { ...r, unitsReceived } : r)));
+  };
+
+  const applyDailyVolumeToAll = () => {
+    const units = Math.max(0, Math.floor(Number.isFinite(bulkDailyVolume) ? bulkDailyVolume : 0));
+    setBulkDailyVolume(units);
+    setReceipts((prev) => prev.map((r) => ({ ...r, unitsReceived: units })));
   };
 
   const syncReceiptDays = (days: number) => {
@@ -149,18 +160,36 @@ export function App() {
     try {
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
       if (runMode === "COMPARE") {
-        const probe: SimulationInput = { assumptions, receipts, scenario: defaultScenarios[0] };
+        const probe: SimulationInput = {
+          assumptions,
+          receipts,
+          scenario: defaultScenarios[0],
+          openingNacUnits,
+          openingSftUnits
+        };
         const errors = validateInput(probe);
         if (errors.length) throw new Error(errors.join(" "));
-        const outputs = runComparison(assumptions, receipts);
-        const data: ComparisonOutput = { assumptions, receipts, ...outputs };
+        const outputs = runComparison(assumptions, receipts, { openingNacUnits, openingSftUnits });
+        const data: ComparisonOutput = {
+          assumptions,
+          receipts,
+          openingNacUnits: outputs.avOnly.openingNacUnits,
+          openingSftUnits: outputs.avOnly.openingSftUnits,
+          ...outputs
+        };
         setComparison(data);
         setResult(data.avOnly);
         setSelectedLoadId(data.avOnly.loads[0]?.id ?? null);
         setSelectedDay(data.avOnly.days[0]?.day ?? null);
       } else {
         const scenario = defaultScenarios.find((item) => item.mode === scenarioMode) ?? defaultScenarios[0];
-        const data = runSimulation({ assumptions, receipts, scenario });
+        const data = runSimulation({
+          assumptions,
+          receipts,
+          scenario,
+          openingNacUnits,
+          openingSftUnits
+        });
         setResult(data);
         setSelectedLoadId(data.loads[0]?.id ?? null);
         setSelectedDay(data.days[0]?.day ?? null);
@@ -186,9 +215,34 @@ export function App() {
 
       {error && <div className="error">{error}</div>}
 
+      <section className="panel">
+        <h2>Opening stock</h2>
+        <p className="panel-hint">
+          Seeds day 1 before receipts. Mix follows Scenario &amp; Split. SFT may start over parking capacity.
+        </p>
+        <div className="grid-2 tight">
+          <Field label="NAC opening" helpKey="openingNacUnits">
+            <input
+              type="number"
+              min={0}
+              value={openingNacUnits}
+              onChange={(e) => setOpeningNacUnits(Math.max(0, Math.floor(num(e.target.value) || 0)))}
+            />
+          </Field>
+          <Field label="SFT opening" helpKey="openingSftUnits">
+            <input
+              type="number"
+              min={0}
+              value={openingSftUnits}
+              onChange={(e) => setOpeningSftUnits(Math.max(0, Math.floor(num(e.target.value) || 0)))}
+            />
+          </Field>
+        </div>
+      </section>
+
       <div className="grid-2">
         <section className="panel">
-          <h2>Receipt Schedule</h2>
+          <h2>NAC Receiving</h2>
           <Field label="Simulation days" helpKey="simulationDays">
             <input
               type="number"
@@ -203,6 +257,25 @@ export function App() {
               accept=".csv,.xlsx,.xls"
               onChange={(e) => e.target.files?.[0] && onImportFile(e.target.files[0])}
             />
+          </Field>
+          <Field label="Daily volume for all days" helpKey="applyAllVolume">
+            <div className="apply-all-row">
+              <input
+                type="number"
+                min={0}
+                value={bulkDailyVolume}
+                onChange={(e) => setBulkDailyVolume(num(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyDailyVolumeToAll();
+                  }
+                }}
+              />
+              <button type="button" onClick={applyDailyVolumeToAll}>
+                Apply to all
+              </button>
+            </div>
           </Field>
           <div className="table-wrap compact">
             <table>
@@ -608,6 +681,8 @@ export function App() {
 
       {activeResult && (
         <>
+          <ResultsNarrative result={activeResult} comparison={comparison} />
+
           <ResultsDashboard
             result={activeResult}
             comparison={comparison}
@@ -759,6 +834,7 @@ export function App() {
                     <LabelWithHelp text="Eligible" helpKey="colEligible" as="th" />
                     <LabelWithHelp text="To SFT" helpKey="colToSft" as="th" />
                     <LabelWithHelp text="NAC backlog" helpKey="colNacBacklog" as="th" />
+                    <LabelWithHelp text="SFT peak" helpKey="colSftPeak" as="th" />
                     <LabelWithHelp text="SFT end" helpKey="colSftEnd" as="th" />
                     <LabelWithHelp text="SFT %" helpKey="colSftPct" as="th" />
                     <LabelWithHelp text="Deps" helpKey="colDeps" as="th" />
@@ -775,6 +851,7 @@ export function App() {
                       <td>{formatNumber(d.eligibleReceived)}</td>
                       <td>{formatNumber(d.nacToSftMoved)}</td>
                       <td>{formatNumber(d.nacBacklogEnd)}</td>
+                      <td>{formatNumber(d.sftAfterTransfer)}</td>
                       <td>{formatNumber(d.sftClosing)}</td>
                       <td>{formatFixed(d.sftOccupancy * 100, 1)}%</td>
                       <td>{formatNumber(d.departures)}</td>

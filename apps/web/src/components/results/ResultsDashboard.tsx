@@ -2,6 +2,7 @@ import type { ComparisonOutput, SimulationOutput } from "@railway/shared";
 import { InfoTooltip } from "../help";
 import { formatNumber } from "../../utils/formatNumber";
 import { InventoryFlowChart } from "./InventoryFlowChart";
+import { HourlySiteInventoryChart } from "./HourlySiteInventoryChart";
 import { DeliveryChart } from "./DeliveryChart";
 import { ManpowerChart } from "./ManpowerChart";
 import { ScenarioComparisonChart } from "./ScenarioComparisonChart";
@@ -71,6 +72,12 @@ export function ResultsDashboard({
         <DeliveryChart days={result.days} selectedDay={selectedDay} onSelectDay={onSelectDay} />
         <ManpowerChart manpower={result.kpis.manpower} />
       </div>
+
+      <HourlySiteInventoryChart
+        timeline={result.inventoryTimeline}
+        trainOperatingHoursPerDay={result.assumptions.trains.trainOperatingHoursPerDay}
+        sftCapacity={sftCapacity}
+      />
 
       <div className="dashboard-grid">
         <TrainConsistDiagram load={selectedLoad} stationLengthMeters={stationLength} />

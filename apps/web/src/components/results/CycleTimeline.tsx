@@ -1,6 +1,6 @@
 import type { TrainLoadLog } from "@railway/shared";
-import { InfoTooltip } from "../help";
 import { formatNumber } from "../../utils/formatNumber";
+import { ChartCard } from "./ChartCard";
 import { normalizeTimelineEvents, timelineEventColor } from "./utils/chartData";
 
 type Props = {
@@ -22,15 +22,17 @@ export function CycleTimeline({ load }: Props) {
   const height = top + events.length * rowH + 24;
 
   return (
-    <div className="chart-card">
-      <h3 className="chart-title-row">
-        <span>Cycle Timeline — {load.id}</span>
-        <InfoTooltip helpKey="chartTimeline" label="Cycle Timeline" />
-      </h3>
-      <p className="chart-subtitle">
-        Total cycle {formatNumber(load.cycleMinutes)} min · mixed-wagon block{" "}
-        {formatNumber(load.mixedWagonBlockingMinutes)} min
-      </p>
+    <ChartCard
+      title={`Cycle Timeline — ${load.id}`}
+      subtitle={
+        <>
+          Total cycle {formatNumber(load.cycleMinutes)} min · mixed-wagon block{" "}
+          {formatNumber(load.mixedWagonBlockingMinutes)} min
+        </>
+      }
+      helpKey="chartTimeline"
+      helpLabel="Cycle Timeline"
+    >
       <div className="timeline-wrap">
         <svg viewBox={`0 0 ${width} ${height}`} className="timeline-svg" role="img" aria-label="Train cycle timeline">
           {events.map((e, idx) => {
@@ -74,6 +76,6 @@ export function CycleTimeline({ load }: Props) {
           ))}
         </ul>
       )}
-    </div>
+    </ChartCard>
   );
 }

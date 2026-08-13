@@ -3,6 +3,7 @@ import type {
   DailyReceipt,
   DailySnapshot,
   Destination,
+  InventorySample,
   LoadEvent,
   ScenarioConfig,
   SimulationAssumptions,
@@ -19,9 +20,139 @@ import { dailyNacTransferCapacity, maxTrainUnits, minTrainUnits } from "./scenar
 
 type MutableLot = VehicleLot;
 
+type NacSftSample = { minute: number; nac: number; sft: number };
+
+type PresenceInterval = {
+  site: "paya" | "kuantan";
+  start: number;
+  end: number;
+  cars: number;
+};
+
 const minutes = (hours: number) => hours * 60;
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Destination on-site presence windows derived from a load's cycle events. */
+export const presenceIntervalsFromLoad = (log: TrainLoadLog): PresenceInterval[] => {
+  const events = log.events;
+  const shuntPaya = events.find((e) => e.type === "SHUNT_PAYA");
+  if (!shuntPaya) return [];
+
+  const intervals: PresenceInterval[] = [];
+  const travelKuantan = events.find((e) => e.type === "TRAVEL_PAYA_KUANTAN");
+  const unloadEc = events.filter((e) => e.type.includes("UNLOAD_EC"));
+  const mixedBlock = events.find((e) => e.type === "MIXED_WAGON_BLOCK");
+  const waitPickup = events.find((e) => e.type === "WAIT_EC_PICKUP");
+
+  if (travelKuantan) {
+    const onwardStart = travelKuantan.startMinute;
+    if (log.totalUnits > 0 && onwardStart > shuntPaya.startMinute) {
+      intervals.push({
+        site: "paya",
+        start: shuntPaya.startMinute,
+        end: onwardStart,
+        cars: log.totalUnits
+      });
+    }
+    const ecEnds = [
+      ...unloadEc.map((e) => e.endMinute),
+      mixedBlock?.endMinute,
+      waitPickup?.endMinute
+    ].filter((n): n is number => typeof n === "number");
+    const ecEnd = ecEnds.length ? Math.max(...ecEnds) : onwardStart;
+    if (log.eastCoastUnits > 0 && ecEnd > onwardStart) {
+      intervals.push({
+        site: "paya",
+        start: onwardStart,
+        end: ecEnd,
+        cars: log.eastCoastUnits
+      });
+    }
+
+    const shuntK = events.find((e) => e.type === "SHUNT_KUANTAN");
+    const unloadEm = events.find((e) => e.type === "UNLOAD_EM_KUANTAN");
+    if (shuntK && unloadEm && log.eastMalaysiaUnits > 0 && unloadEm.endMinute > shuntK.startMinute) {
+      intervals.push({
+        site: "kuantan",
+        start: shuntK.startMinute,
+        end: unloadEm.endMinute,
+        cars: log.eastMalaysiaUnits
+      });
+    }
+  } else {
+    const unload = events.find((e) => e.type === "UNLOAD_EC_PAYA");
+    const end = unload?.endMinute ?? shuntPaya.endMinute;
+    if (log.totalUnits > 0 && end > shuntPaya.startMinute) {
+      intervals.push({
+        site: "paya",
+        start: shuntPaya.startMinute,
+        end,
+        cars: log.totalUnits
+      });
+    }
+  }
+
+  return intervals;
+};
+
+type TimelineEvent = {
+  minute: number;
+  nac?: number;
+  sft?: number;
+  dPaya?: number;
+  dKuantan?: number;
+  /** Positive presence before negative at the same minute so peaks are visible. */
+  rank: number;
+};
+
+/** Merge NAC/SFT step samples with destination presence deltas into a step timeline. */
+export const buildInventoryTimeline = (
+  nacSftChanges: NacSftSample[],
+  loads: TrainLoadLog[]
+): InventorySample[] => {
+  const events: TimelineEvent[] = [];
+
+  for (const c of nacSftChanges) {
+    events.push({ minute: c.minute, nac: c.nac, sft: c.sft, rank: 0 });
+  }
+
+  for (const log of loads) {
+    for (const iv of presenceIntervalsFromLoad(log)) {
+      if (iv.site === "paya") {
+        events.push({ minute: iv.start, dPaya: iv.cars, rank: 1 });
+        events.push({ minute: iv.end, dPaya: -iv.cars, rank: 2 });
+      } else {
+        events.push({ minute: iv.start, dKuantan: iv.cars, rank: 1 });
+        events.push({ minute: iv.end, dKuantan: -iv.cars, rank: 2 });
+      }
+    }
+  }
+
+  events.sort((a, b) => a.minute - b.minute || a.rank - b.rank);
+
+  let nac = 0;
+  let sft = 0;
+  let payaBesar = 0;
+  let kuantanPort = 0;
+  const timeline: InventorySample[] = [{ minute: 0, nac: 0, sft: 0, payaBesar: 0, kuantanPort: 0 }];
+
+  for (const e of events) {
+    if (e.nac !== undefined) nac = e.nac;
+    if (e.sft !== undefined) sft = e.sft;
+    if (e.dPaya) payaBesar += e.dPaya;
+    if (e.dKuantan) kuantanPort += e.dKuantan;
+    timeline.push({
+      minute: round1(e.minute),
+      nac,
+      sft,
+      payaBesar,
+      kuantanPort
+    });
+  }
+
+  return timeline;
+};
 
 const handlingMinutes = (cars: number, tactPerCar: number, team: number) => {
   if (cars <= 0) return 0;
@@ -139,6 +270,65 @@ export const createDailyLots = (
   }
 
   return { eligible, ineligibleCount, byDayEligible, byDayIneligible };
+};
+
+/**
+ * Split already-eligible opening stock into destination × AV/NAV lots.
+ * Does not apply non-rail remainder or scenario eligibility filters.
+ * Uses dayReceived 0 so FIFO drains these before day-1 receipts.
+ */
+export const createOpeningLots = (
+  totalUnits: number,
+  assumptions: SimulationAssumptions,
+  idPrefix: string
+): MutableLot[] => {
+  const total = Math.max(0, Math.floor(totalUnits));
+  if (total <= 0) return [];
+
+  const ecPct = Math.max(0, assumptions.split.eastCoastPercent);
+  const emPct = Math.max(0, assumptions.split.eastMalaysiaPercent);
+  const destTotal = ecPct + emPct;
+
+  let ec = 0;
+  let em = 0;
+  if (destTotal > 0) {
+    ec = Math.floor((total * ecPct) / destTotal);
+    em = total - ec;
+  } else {
+    ec = total;
+  }
+
+  const lots: MutableLot[] = [];
+  let sequence = 0;
+
+  const assign = (destination: Destination, units: number) => {
+    if (units <= 0) return;
+    const avPct =
+      destination === "East Coast"
+        ? assumptions.split.eastCoastAvPercent
+        : assumptions.split.eastMalaysiaAvPercent;
+    const [av, nav] = splitInteger(units, avPct);
+    const parts: Array<{ allocation: Allocation; units: number }> = [
+      { allocation: "AV", units: av },
+      { allocation: "NAV", units: nav }
+    ];
+    for (const part of parts) {
+      if (part.units <= 0) continue;
+      sequence += 1;
+      lots.push({
+        id: `${idPrefix}-${destination}-${part.allocation}-${sequence}`,
+        dayReceived: 0,
+        sequence,
+        destination,
+        allocation: part.allocation,
+        units: part.units
+      });
+    }
+  };
+
+  assign("East Coast", ec);
+  assign("East Malaysia", em);
+  return lots;
 };
 
 const wagonPurity = (ec: number, em: number): WagonPurity => {
@@ -464,6 +654,12 @@ export const validateInput = (input: SimulationInput): string[] => {
   for (const r of input.receipts) {
     if (r.day < 1 || r.unitsReceived < 0) errors.push(`Invalid receipt for day ${r.day}.`);
   }
+  if (input.openingNacUnits != null && input.openingNacUnits < 0) {
+    errors.push("openingNacUnits cannot be negative.");
+  }
+  if (input.openingSftUnits != null && input.openingSftUnits < 0) {
+    errors.push("openingSftUnits cannot be negative.");
+  }
   return errors;
 };
 
@@ -488,6 +684,14 @@ export const runSimulation = (input: SimulationInput): SimulationOutput => {
 
   const nacQueue: MutableLot[] = [];
   const sftQueue: MutableLot[] = [];
+  const openingNacUnits = Math.max(0, Math.floor(input.openingNacUnits ?? 0));
+  const openingSftUnits = Math.max(0, Math.floor(input.openingSftUnits ?? 0));
+  for (const lot of createOpeningLots(openingNacUnits, assumptions, "opening-nac")) {
+    nacQueue.push(lot);
+  }
+  for (const lot of createOpeningLots(openingSftUnits, assumptions, "opening-sft")) {
+    sftQueue.push(lot);
+  }
   const loads: TrainLoadLog[] = [];
   const days: DailySnapshot[] = [];
 
@@ -504,10 +708,21 @@ export const runSimulation = (input: SimulationInput): SimulationOutput => {
   let kuantanCarsHandled = 0;
   let daysToSftFull: number | null = null;
   let maxSft = 0;
+  const nacSftChanges: NacSftSample[] = [];
+
+  const pushNacSft = (minute: number) => {
+    nacSftChanges.push({
+      minute,
+      nac: countUnits(nacQueue),
+      sft: countUnits(sftQueue)
+    });
+  };
 
   const receiptByDay = new Map(receipts.map((r) => [r.day, r.unitsReceived]));
 
   for (let day = 1; day <= horizon; day += 1) {
+    const dayOffset = (day - 1) * windowMinutes;
+
     // Release eligible lots for this day into NAC backlog (already created with dayReceived).
     for (const lot of eligible) {
       if (lot.dayReceived === day && lot.units > 0) {
@@ -516,6 +731,7 @@ export const runSimulation = (input: SimulationInput): SimulationOutput => {
       }
     }
     compactLots(eligible);
+    pushNacSft(dayOffset);
 
     const nacReceived = receiptByDay.get(day) ?? 0;
     const eligibleReceived = byDayEligible[day] ?? 0;
@@ -541,6 +757,13 @@ export const runSimulation = (input: SimulationInput): SimulationOutput => {
     }
     compactLots(nacQueue);
     compactLots(sftQueue);
+    pushNacSft(dayOffset);
+
+    const sftAfterTransfer = countUnits(sftQueue);
+    maxSft = Math.max(maxSft, sftOpening, sftAfterTransfer);
+    if (daysToSftFull === null && sftAfterTransfer >= assumptions.movement.sftParkingCapacity) {
+      daysToSftFull = day;
+    }
 
     let departures = 0;
     let unitsDispatched = 0;
@@ -568,7 +791,6 @@ export const runSimulation = (input: SimulationInput): SimulationOutput => {
       }
       if (bestTs < 0) break;
 
-      const dayOffset = (day - 1) * windowMinutes;
       const earliest = Math.max(bestAvail, dayOffset);
       if (earliest >= dayOffset + windowMinutes) break;
 
@@ -597,6 +819,7 @@ export const runSimulation = (input: SimulationInput): SimulationOutput => {
       // Commit: actually take from sftQueue
       const committed = selectCarsForLoad(sftQueue, assumptions, selectedUnits);
       compactLots(sftQueue);
+      pushNacSft(earliest);
       loadCounter += 1;
       const log = simulateLoadCycle(`L${loadCounter}`, day, bestTs + 1, earliest, committed, assumptions);
       if (tempLog.notes.includes("Mandatory daily load exceeds the operating window.")) {
@@ -630,10 +853,9 @@ export const runSimulation = (input: SimulationInput): SimulationOutput => {
     kuantanHandlingTotal += handlingKuantan;
 
     const sftClosing = countUnits(sftQueue);
-    maxSft = Math.max(maxSft, sftClosing, sftOpening);
-    if (daysToSftFull === null && sftClosing >= assumptions.movement.sftParkingCapacity) {
-      daysToSftFull = day;
-    }
+    maxSft = Math.max(maxSft, sftClosing);
+    // daysToSftFull is based on post-transfer peak (set above), not end-of-day closing.
+    pushNacSft(dayOffset + windowMinutes);
 
     days.push({
       day,
@@ -643,8 +865,12 @@ export const runSimulation = (input: SimulationInput): SimulationOutput => {
       nacToSftMoved: moved,
       nacBacklogEnd: countUnits(nacQueue),
       sftOpening,
+      sftAfterTransfer,
       sftClosing,
-      sftOccupancy: assumptions.movement.sftParkingCapacity > 0 ? sftClosing / assumptions.movement.sftParkingCapacity : 0,
+      sftOccupancy:
+        assumptions.movement.sftParkingCapacity > 0
+          ? Math.max(sftAfterTransfer, sftClosing) / assumptions.movement.sftParkingCapacity
+          : 0,
       sftCapacityBlocked: capacityBlocked,
       departures,
       unitsDispatched,
@@ -724,22 +950,38 @@ export const runSimulation = (input: SimulationInput): SimulationOutput => {
     manpower
   };
 
-  return { assumptions, scenario, days, loads, kpis };
+  return {
+    assumptions,
+    scenario,
+    days,
+    loads,
+    inventoryTimeline: buildInventoryTimeline(nacSftChanges, loads),
+    kpis,
+    openingNacUnits,
+    openingSftUnits
+  };
 };
 
 export const runComparison = (
   assumptions: SimulationAssumptions,
-  receipts: DailyReceipt[]
+  receipts: DailyReceipt[],
+  opening?: { openingNacUnits?: number; openingSftUnits?: number }
 ): { avOnly: SimulationOutput; avAndNav: SimulationOutput } => {
+  const openingNacUnits = opening?.openingNacUnits;
+  const openingSftUnits = opening?.openingSftUnits;
   const avOnly = runSimulation({
     assumptions,
     receipts,
-    scenario: { mode: "AV_ONLY", name: "AV Only" }
+    scenario: { mode: "AV_ONLY", name: "AV Only" },
+    openingNacUnits,
+    openingSftUnits
   });
   const avAndNav = runSimulation({
     assumptions,
     receipts,
-    scenario: { mode: "AV_AND_NAV", name: "AV + NAV" }
+    scenario: { mode: "AV_AND_NAV", name: "AV + NAV" },
+    openingNacUnits,
+    openingSftUnits
   });
   return { avOnly, avAndNav };
 };

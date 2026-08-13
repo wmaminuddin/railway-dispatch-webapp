@@ -9,8 +9,8 @@ import {
   YAxis
 } from "recharts";
 import type { SiteManpowerKpi } from "@railway/shared";
-import { InfoTooltip } from "../help";
 import { formatChartNumber, formatNumber } from "../../utils/formatNumber";
+import { ChartCard } from "./ChartCard";
 import { bottleneckSite, CHART_COLORS } from "./utils/chartData";
 
 type Props = {
@@ -22,19 +22,21 @@ export function ManpowerChart({ manpower }: Props) {
   const bottleneck = bottleneckSite(manpower);
 
   return (
-    <div className="chart-card">
-      <h3 className="chart-title-row">
-        <span>Manpower Planning</span>
-        <InfoTooltip helpKey="chartManpower" label="Manpower Planning chart" />
-      </h3>
-      <p className="chart-subtitle">
-        Handling hours by site
-        {bottleneck
-          ? ` · Bottleneck: ${bottleneck.site} (${formatNumber(bottleneck.totalHandlingHours)} h)`
-          : ""}
-      </p>
+    <ChartCard
+      title="Manpower Planning"
+      subtitle={
+        <>
+          Handling hours by site
+          {bottleneck
+            ? ` · Bottleneck: ${bottleneck.site} (${formatNumber(bottleneck.totalHandlingHours)} h)`
+            : ""}
+        </>
+      }
+      helpKey="chartManpower"
+      helpLabel="Manpower Planning chart"
+    >
       <div className="chart-frame">
-        <ResponsiveContainer width="100%" height={260}>
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={manpower}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis dataKey="site" />
@@ -42,8 +44,20 @@ export function ManpowerChart({ manpower }: Props) {
             <YAxis yAxisId="right" orientation="right" tickFormatter={formatChartNumber} />
             <Tooltip formatter={(value) => formatChartNumber(value)} />
             <Legend />
-            <Bar yAxisId="left" dataKey="totalHandlingHours" name="Handling hours" fill={CHART_COLORS.loading} radius={[4, 4, 0, 0]} />
-            <Bar yAxisId="right" dataKey="carsHandled" name="Cars handled" fill={CHART_COLORS.travel} radius={[4, 4, 0, 0]} />
+            <Bar
+              yAxisId="left"
+              dataKey="totalHandlingHours"
+              name="Handling hours"
+              fill={CHART_COLORS.loading}
+              radius={[4, 4, 0, 0]}
+            />
+            <Bar
+              yAxisId="right"
+              dataKey="carsHandled"
+              name="Cars handled"
+              fill={CHART_COLORS.travel}
+              radius={[4, 4, 0, 0]}
+            />
             <Bar
               yAxisId="right"
               dataKey="effectiveMinutesPerCar"
@@ -61,6 +75,6 @@ export function ManpowerChart({ manpower }: Props) {
           </span>
         ))}
       </div>
-    </div>
+    </ChartCard>
   );
 }

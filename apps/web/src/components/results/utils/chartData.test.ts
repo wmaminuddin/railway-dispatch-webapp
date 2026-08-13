@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { ComparisonOutput, DailySnapshot, TrainLoadLog, WagonAssignment } from "@railway/shared";
+import type {
+  ComparisonOutput,
+  DailySnapshot,
+  InventorySample,
+  TrainLoadLog,
+  WagonAssignment
+} from "@railway/shared";
 import {
   bottleneckSite,
   classifyWagons,
@@ -7,6 +13,7 @@ import {
   timelineEventColor,
   toComparisonPoints,
   toDeliveryPoints,
+  toHourlySiteInventory,
   toInventoryPoints
 } from "./chartData";
 
@@ -19,6 +26,7 @@ const days: DailySnapshot[] = [
     nacToSftMoved: 60,
     nacBacklogEnd: 20,
     sftOpening: 0,
+    sftAfterTransfer: 60,
     sftClosing: 40,
     sftOccupancy: 0.057,
     sftCapacityBlocked: 0,
@@ -38,6 +46,7 @@ describe("chart data transforms", () => {
       day: 1,
       nacBacklog: 20,
       sftInventory: 40,
+      sftAfterTransfer: 60,
       sftCapacity: 700
     });
   });
@@ -55,8 +64,26 @@ describe("chart data transforms", () => {
     const comparison = {
       assumptions: {} as ComparisonOutput["assumptions"],
       receipts: [],
-      avOnly: { kpis: { totalEligible: 10, totalUnitsDispatched: 8, totalDepartures: 1, endingNacBacklog: 2, maxSftInventory: 40, averageCycleMinutes: 100 } },
-      avAndNav: { kpis: { totalEligible: 20, totalUnitsDispatched: 15, totalDepartures: 2, endingNacBacklog: 1, maxSftInventory: 60, averageCycleMinutes: 110 } }
+      avOnly: {
+        kpis: {
+          totalEligible: 10,
+          totalUnitsDispatched: 8,
+          totalDepartures: 1,
+          endingNacBacklog: 2,
+          maxSftInventory: 40,
+          averageCycleMinutes: 100
+        }
+      },
+      avAndNav: {
+        kpis: {
+          totalEligible: 20,
+          totalUnitsDispatched: 15,
+          totalDepartures: 2,
+          endingNacBacklog: 1,
+          maxSftInventory: 60,
+          averageCycleMinutes: 110
+        }
+      }
     } as unknown as ComparisonOutput;
     const points = toComparisonPoints(comparison);
     expect(points.find((p) => p.metric === "Eligible")).toEqual({
@@ -64,6 +91,23 @@ describe("chart data transforms", () => {
       avOnly: 10,
       avAndNav: 20
     });
+  });
+
+  it("hourly max preserves a mid-hour unload spike", () => {
+    const timeline: InventorySample[] = [
+      { minute: 0, nac: 10, sft: 50, payaBesar: 0, kuantanPort: 0 },
+      { minute: 90, nac: 10, sft: 50, payaBesar: 40, kuantanPort: 0 },
+      { minute: 100, nac: 10, sft: 50, payaBesar: 0, kuantanPort: 0 },
+      { minute: 150, nac: 5, sft: 30, payaBesar: 0, kuantanPort: 25 },
+      { minute: 155, nac: 5, sft: 30, payaBesar: 0, kuantanPort: 0 },
+      { minute: 180, nac: 5, sft: 30, payaBesar: 0, kuantanPort: 0 }
+    ];
+    const hourly = toHourlySiteInventory(timeline, 24, 700);
+    expect(hourly.find((p) => p.hour === 1)?.payaBesar).toBe(40);
+    expect(hourly.find((p) => p.hour === 2)?.kuantanPort).toBe(25);
+    expect(hourly.find((p) => p.hour === 1)?.payaBesar).toBeGreaterThan(
+      timeline.find((s) => s.minute === 100)?.payaBesar ?? 0
+    );
   });
 });
 

@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { HELP, getHelp, helpKeys } from "../helpContent";
 
 const requiredInputKeys = [
+  "openingNacUnits",
+  "openingSftUnits",
   "simulationDays",
   "importSchedule",
   "unitsFromNac",
+  "applyAllVolume",
   "runMode",
   "scenarioMode",
   "eastCoastPercent",
@@ -46,6 +49,8 @@ const requiredOutputKeys = [
   "colDeps",
   "colBlockMin",
   "chartInventory",
+  "chartHourlyInventory",
+  "resultsNarrative",
   "chartManpower",
   "chartConsist",
   "chartTimeline",

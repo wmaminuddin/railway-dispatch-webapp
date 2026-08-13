@@ -7,6 +7,23 @@ export type HelpEntry = {
 };
 
 export const HELP: Record<string, HelpEntry> = {
+  // Inputs – opening stock
+  openingNacUnits: {
+    title: "NAC opening",
+    meaning:
+      "Eligible cars already waiting at NAC at the start of day 1 (carry-in backlog). Not treated as a new receipt.",
+    impact:
+      "Increases starting NAC backlog and day-1 transfer demand. Mix follows Scenario & Split; non-rail and scenario eligibility filters are not re-applied.",
+    unit: "cars"
+  },
+  openingSftUnits: {
+    title: "SFT opening",
+    meaning: "Cars already parked at SFT at the start of day 1. May exceed parking capacity.",
+    impact:
+      "Raises day-1 SFT opening inventory and can block NAC→SFT transfers until departures free space. Mix follows Scenario & Split.",
+    unit: "cars"
+  },
+
   // Inputs – schedule / scenario
   simulationDays: {
     title: "Simulation days",
@@ -23,6 +40,12 @@ export const HELP: Record<string, HelpEntry> = {
     title: "Units from NAC",
     meaning: "Cars received from the factory (NAC) on that day before destination and AV/NAV splits.",
     impact: "Higher receipts increase eligible rail volume, NAC backlog pressure, and SFT fill rates.",
+    unit: "cars/day"
+  },
+  applyAllVolume: {
+    title: "Apply daily volume to all days",
+    meaning: "Sets the same Units from NAC value on every day in the current simulation horizon.",
+    impact: "Quickly builds a flat receipt schedule before you tweak individual days or import a file.",
     unit: "cars/day"
   },
   runMode: {
@@ -287,8 +310,8 @@ export const HELP: Record<string, HelpEntry> = {
   },
   kpiMaxSft: {
     title: "Max SFT",
-    meaning: "Peak SFT inventory observed during the run.",
-    impact: "Compared to parking capacity for congestion risk.",
+    meaning: "Peak SFT inventory during the run, including stock right after NAC→SFT transfer before departures.",
+    impact: "Compared to parking capacity for congestion risk. Can be higher than end-of-day SFT.",
     unit: "cars"
   },
   kpiSftCongestion: {
@@ -403,13 +426,19 @@ export const HELP: Record<string, HelpEntry> = {
   colSftEnd: {
     title: "SFT end",
     meaning: "SFT inventory after the day's transfers and departures.",
-    impact: "Tracks yard occupancy trend.",
+    impact: "Tracks yard occupancy trend at day close.",
+    unit: "cars"
+  },
+  colSftPeak: {
+    title: "SFT peak",
+    meaning: "SFT inventory after NAC→SFT transfers and before train departures that day.",
+    impact: "This is when parking capacity blocks further transfers. End-of-day SFT can be lower.",
     unit: "cars"
   },
   colSftPct: {
     title: "SFT %",
-    meaning: "SFT closing inventory ÷ parking capacity.",
-    impact: "Near 100% signals congestion risk.",
+    meaning: "Peak SFT that day (after transfer) ÷ parking capacity.",
+    impact: "Near 100% signals congestion / blocked NAC→SFT transfers.",
     unit: "%"
   },
   colDeps: {
@@ -515,8 +544,24 @@ export const HELP: Record<string, HelpEntry> = {
   // Charts / visuals
   chartInventory: {
     title: "Inventory Flow chart",
-    meaning: "Daily NAC backlog and SFT inventory with an SFT capacity reference line.",
-    impact: "Shows when congestion builds. Click a day to focus loads for that day."
+    meaning:
+      "Daily NAC backlog, SFT stock after NAC→SFT transfer (before departures), and end-of-day SFT after trains leave, with a parking capacity reference line.",
+    impact:
+      "Capacity blocks happen at transfer time. End-of-day SFT can look lower after departures even when the yard hit capacity mid-day."
+  },
+  chartHourlyInventory: {
+    title: "Hourly Site Inventory chart",
+    meaning:
+      "Full-horizon hourly max of NAC and SFT stock, plus cars on site at Paya Besar and Kuantan Port during shunt/unload/wait windows. NAC→SFT transfer is a day-start step, not paced by hour.",
+    impact:
+      "Shows when destination handling overlaps and how yard stock moves within operating hours—not just end-of-day totals."
+  },
+  resultsNarrative: {
+    title: "Results Narrative",
+    meaning:
+      "Rule-based summary of this simulation run: throughput funnel, yard/backlog constraints, train economics, and manpower bottlenecks.",
+    impact:
+      "Helps interpret why KPIs look the way they do and which assumptions to adjust next — without an AI service."
   },
   chartDelivery: {
     title: "Daily Deliveries chart",

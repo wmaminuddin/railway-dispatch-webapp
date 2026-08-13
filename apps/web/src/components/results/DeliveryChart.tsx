@@ -10,8 +10,8 @@ import {
   YAxis
 } from "recharts";
 import type { DailySnapshot } from "@railway/shared";
-import { InfoTooltip } from "../help";
 import { formatChartNumber } from "../../utils/formatNumber";
+import { ChartCard } from "./ChartCard";
 import { CHART_COLORS, toDeliveryPoints } from "./utils/chartData";
 
 type Props = {
@@ -25,14 +25,14 @@ export function DeliveryChart({ days, selectedDay, onSelectDay }: Props) {
   if (!data.length) return <div className="chart-empty">No delivery data yet.</div>;
 
   return (
-    <div className="chart-card">
-      <h3 className="chart-title-row">
-        <span>Daily Deliveries</span>
-        <InfoTooltip helpKey="chartDelivery" label="Daily Deliveries chart" />
-      </h3>
-      <p className="chart-subtitle">East Coast and East Malaysia units with train departures</p>
+    <ChartCard
+      title="Daily Deliveries"
+      subtitle="East Coast and East Malaysia units with train departures"
+      helpKey="chartDelivery"
+      helpLabel="Daily Deliveries chart"
+    >
       <div className="chart-frame">
-        <ResponsiveContainer width="100%" height={260}>
+        <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={data}
             onClick={(state) => {
@@ -43,7 +43,12 @@ export function DeliveryChart({ days, selectedDay, onSelectDay }: Props) {
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis dataKey="day" />
             <YAxis yAxisId="left" tickFormatter={formatChartNumber} />
-            <YAxis yAxisId="right" orientation="right" allowDecimals={false} tickFormatter={formatChartNumber} />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              allowDecimals={false}
+              tickFormatter={formatChartNumber}
+            />
             <Tooltip formatter={(value) => formatChartNumber(value)} />
             <Legend />
             <Bar
@@ -73,6 +78,6 @@ export function DeliveryChart({ days, selectedDay, onSelectDay }: Props) {
         </ResponsiveContainer>
       </div>
       {selectedDay != null && <div className="chart-note">Focused day: {selectedDay}</div>}
-    </div>
+    </ChartCard>
   );
 }

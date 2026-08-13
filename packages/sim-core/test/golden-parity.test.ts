@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { SimulationAssumptions, SimulationInput } from "@railway/shared";
-import { createDailyLots, runComparison, runSimulation, validateInput } from "../src/engine";
+import { createDailyLots, createOpeningLots, runComparison, runSimulation, validateInput } from "../src/engine";
 import { defaultAssumptions, sampleReceipts } from "../src/scenarios";
 import { parseCsvReceipts } from "../src/import-schedule";
 
 const makeInput = (
   assumptionOverrides: Partial<SimulationAssumptions> = {},
   receipts = sampleReceipts(7, 300),
-  mode: "AV_ONLY" | "AV_AND_NAV" = "AV_AND_NAV"
+  mode: "AV_ONLY" | "AV_AND_NAV" = "AV_AND_NAV",
+  opening: { openingNacUnits?: number; openingSftUnits?: number } = {}
 ): SimulationInput => ({
   assumptions: {
     ...defaultAssumptions,
@@ -23,7 +24,8 @@ const makeInput = (
     mode,
     name: mode === "AV_ONLY" ? "AV Only" : "AV + NAV"
   },
-  receipts
+  receipts,
+  ...opening
 });
 
 describe("validation and import", () => {
@@ -61,6 +63,136 @@ describe("lot splitting and conservation", () => {
     expect(bothUnits).toBeGreaterThan(avUnits);
     expect(avOnly.eligible.every((l) => l.allocation === "AV")).toBe(true);
   });
+
+  it("createOpeningLots conserves units with dayReceived 0 and includes AV+NAV", () => {
+    const lots = createOpeningLots(100, defaultAssumptions, "opening-nac");
+    expect(lots.reduce((s, l) => s + l.units, 0)).toBe(100);
+    expect(lots.every((l) => l.dayReceived === 0)).toBe(true);
+    expect(lots.some((l) => l.allocation === "AV")).toBe(true);
+    expect(lots.some((l) => l.allocation === "NAV")).toBe(true);
+  });
+});
+
+describe("opening stock", () => {
+  it("defaults opening stock to 0 without changing empty-start behavior", () => {
+    const output = runSimulation(makeInput());
+    expect(output.openingNacUnits).toBe(0);
+    expect(output.openingSftUnits).toBe(0);
+    expect(output.days[0]?.sftOpening).toBe(0);
+  });
+
+  it("seeds SFT opening into day-1 sftOpening", () => {
+    const output = runSimulation(makeInput({}, sampleReceipts(3, 0), "AV_AND_NAV", { openingSftUnits: 120 }));
+    expect(output.openingSftUnits).toBe(120);
+    expect(output.days[0]?.sftOpening).toBe(120);
+  });
+
+  it("seeds NAC opening and transfers it when capacity allows", () => {
+    const output = runSimulation(
+      makeInput(
+        {
+          simulationDays: 1,
+          movement: {
+            ...defaultAssumptions.movement,
+            nacOperatingHoursPerDay: 24,
+            nacDriversOrLanes: 20,
+            nacToSftTactMinutes: 1,
+            sftParkingCapacity: 1000
+          },
+          trains: {
+            ...defaultAssumptions.trains,
+            trainsetsAvailable: 1,
+            trainOperatingHoursPerDay: 0.01
+          }
+        },
+        [{ day: 1, unitsReceived: 0 }],
+        "AV_AND_NAV",
+        { openingNacUnits: 80 }
+      )
+    );
+    expect(output.openingNacUnits).toBe(80);
+    expect(output.days[0]?.nacToSftMoved).toBe(80);
+    expect(output.days[0]?.nacBacklogEnd).toBe(0);
+  });
+
+  it("seeds both NAC and SFT opening stock", () => {
+    const output = runSimulation(
+      makeInput(
+        {
+          simulationDays: 1,
+          movement: {
+            ...defaultAssumptions.movement,
+            nacOperatingHoursPerDay: 24,
+            nacDriversOrLanes: 20,
+            nacToSftTactMinutes: 1,
+            sftParkingCapacity: 1000
+          },
+          trains: {
+            ...defaultAssumptions.trains,
+            trainOperatingHoursPerDay: 0.01
+          }
+        },
+        [{ day: 1, unitsReceived: 0 }],
+        "AV_AND_NAV",
+        { openingNacUnits: 40, openingSftUnits: 90 }
+      )
+    );
+    expect(output.days[0]?.sftOpening).toBe(90);
+    expect(output.days[0]?.nacToSftMoved).toBe(40);
+    expect(output.days[0]?.sftAfterTransfer).toBe(130);
+  });
+
+  it("allows over-capacity SFT opening and blocks day-1 transfers", () => {
+    const output = runSimulation(
+      makeInput(
+        {
+          simulationDays: 1,
+          movement: {
+            ...defaultAssumptions.movement,
+            sftParkingCapacity: 50,
+            nacOperatingHoursPerDay: 24,
+            nacDriversOrLanes: 20,
+            nacToSftTactMinutes: 1
+          }
+        },
+        [{ day: 1, unitsReceived: 100 }],
+        "AV_AND_NAV",
+        { openingSftUnits: 80 }
+      )
+    );
+    expect(output.days[0]?.sftOpening).toBe(80);
+    expect(output.days[0]?.nacToSftMoved).toBe(0);
+    expect(output.days[0]?.sftCapacityBlocked).toBeGreaterThan(0);
+  });
+
+  it("drains dayReceived 0 NAC lots before day-1 receipt lots under limited transfer", () => {
+    // transferCap = floor(60*1/2) = 30; opening NAC = 30 → day-1 eligible remains in backlog
+    const output = runSimulation(
+      makeInput(
+        {
+          simulationDays: 1,
+          movement: {
+            ...defaultAssumptions.movement,
+            nacOperatingHoursPerDay: 1,
+            nacDriversOrLanes: 1,
+            nacToSftTactMinutes: 2,
+            sftParkingCapacity: 1000
+          },
+          trains: {
+            ...defaultAssumptions.trains,
+            trainOperatingHoursPerDay: 0.01
+          }
+        },
+        [{ day: 1, unitsReceived: 200 }],
+        "AV_AND_NAV",
+        { openingNacUnits: 30 }
+      )
+    );
+    const day1 = output.days[0]!;
+    expect(day1.nacToSftMoved).toBe(30);
+    expect(day1.nacBacklogEnd).toBe(day1.eligibleReceived);
+    expect(day1.sftAfterTransfer).toBe(30);
+  });
 });
 
 describe("operations engine", () => {
@@ -88,6 +220,25 @@ describe("operations engine", () => {
       })
     );
     expect(output.days.every((d) => d.sftClosing <= 40)).toBe(true);
+    expect(output.days.every((d) => d.sftAfterTransfer <= 40)).toBe(true);
+  });
+
+  it("records post-transfer SFT peak above end-of-day when capacity blocks transfers", () => {
+    const output = runSimulation(
+      makeInput(
+        {},
+        sampleReceipts(14, 400),
+        "AV_ONLY"
+      )
+    );
+    const blocked = output.days.filter((d) => d.sftCapacityBlocked > 0);
+    expect(blocked.length).toBeGreaterThan(0);
+    expect(output.kpis.maxSftInventory).toBe(output.assumptions.movement.sftParkingCapacity);
+    expect(output.kpis.sftCongestionAlert).toBe(true);
+    for (const d of blocked) {
+      expect(d.sftAfterTransfer).toBe(output.assumptions.movement.sftParkingCapacity);
+      expect(d.sftAfterTransfer).toBeGreaterThanOrEqual(d.sftClosing);
+    }
   });
 
   it("dispatches at least one load when inventory exists", () => {
@@ -201,5 +352,41 @@ describe("operations engine", () => {
   it("keeps eligible + ineligible equal to total received", () => {
     const output = runSimulation(makeInput());
     expect(output.kpis.totalEligible + output.kpis.totalIneligible).toBe(output.kpis.totalReceived);
+  });
+
+  it("emits inventory timeline with SFT rise after transfer and drop after departure", () => {
+    const output = runSimulation(makeInput());
+    expect(output.inventoryTimeline.length).toBeGreaterThan(1);
+
+    const day0Samples = output.inventoryTimeline.filter((s) => s.minute === 0);
+    expect(day0Samples.some((s) => s.sft > 0)).toBe(true);
+
+    const peakSft = Math.max(...output.inventoryTimeline.map((s) => s.sft));
+    expect(peakSft).toBeGreaterThanOrEqual(output.days[0]?.sftAfterTransfer ?? 0);
+
+    const afterDeparture = output.inventoryTimeline.find(
+      (s) => s.minute > 0 && s.sft < peakSft && s.nac >= 0
+    );
+    expect(afterDeparture).toBeTruthy();
+  });
+
+  it("shows Paya/Kuantan on-site cars only inside handling windows", () => {
+    const output = runSimulation(makeInput());
+    expect(output.loads.length).toBeGreaterThan(0);
+
+    const maxPaya = Math.max(...output.inventoryTimeline.map((s) => s.payaBesar));
+    const maxKuantan = Math.max(...output.inventoryTimeline.map((s) => s.kuantanPort));
+    expect(maxPaya).toBeGreaterThan(0);
+    expect(maxKuantan).toBeGreaterThan(0);
+
+    const firstLoad = output.loads[0];
+    const shuntPaya = firstLoad.events.find((e) => e.type === "SHUNT_PAYA");
+    expect(shuntPaya).toBeTruthy();
+
+    // Before any train arrives at Paya, on-site should be zero
+    const beforeArrival = output.inventoryTimeline.filter(
+      (s) => s.minute < (shuntPaya?.startMinute ?? 0)
+    );
+    expect(beforeArrival.every((s) => s.payaBesar === 0 && s.kuantanPort === 0)).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ComparisonOutput } from "@railway/shared";
-import { InfoTooltip } from "../help";
 import { formatChartNumber } from "../../utils/formatNumber";
+import { ChartCard } from "./ChartCard";
 import { CHART_COLORS, toComparisonPoints } from "./utils/chartData";
 
 type Props = {
@@ -13,12 +13,12 @@ export function ScenarioComparisonChart({ comparison, onSelectScenario }: Props)
   const data = toComparisonPoints(comparison);
 
   return (
-    <div className="chart-card">
-      <h3 className="chart-title-row">
-        <span>AV Only vs AV + NAV</span>
-        <InfoTooltip helpKey="chartCompare" label="AV Only vs AV + NAV chart" />
-      </h3>
-      <p className="chart-subtitle">Click a scenario button to inspect detailed results</p>
+    <ChartCard
+      title="AV Only vs AV + NAV"
+      subtitle="Click a scenario button to inspect detailed results"
+      helpKey="chartCompare"
+      helpLabel="AV Only vs AV + NAV chart"
+    >
       <div className="chart-actions">
         <button type="button" onClick={() => onSelectScenario?.("AV_ONLY")}>
           Inspect AV Only
@@ -27,8 +27,8 @@ export function ScenarioComparisonChart({ comparison, onSelectScenario }: Props)
           Inspect AV + NAV
         </button>
       </div>
-      <div className="chart-frame">
-        <ResponsiveContainer width="100%" height={280}>
+      <div className="chart-frame chart-frame-compare">
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis dataKey="metric" interval={0} angle={-15} textAnchor="end" height={60} />
@@ -40,6 +40,6 @@ export function ScenarioComparisonChart({ comparison, onSelectScenario }: Props)
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </ChartCard>
   );
 }
