@@ -2,7 +2,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import type { ComparisonOutput } from "@railway/shared";
 import { formatChartNumber } from "../../utils/formatNumber";
 import { ChartCard } from "./ChartCard";
-import { CHART_COLORS, toComparisonPoints } from "./utils/chartData";
+import { CHART_COLORS, CHART_MARGIN, toComparisonPoints, xAxisTitle, yAxisTitle } from "./utils/chartData";
 
 type Props = {
   comparison: ComparisonOutput;
@@ -29,10 +29,17 @@ export function ScenarioComparisonChart({ comparison, onSelectScenario }: Props)
       </div>
       <div className="chart-frame chart-frame-compare">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
+          <BarChart data={data} margin={{ ...CHART_MARGIN, bottom: 52 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="metric" interval={0} angle={-15} textAnchor="end" height={60} />
-            <YAxis tickFormatter={formatChartNumber} />
+            <XAxis
+              dataKey="metric"
+              interval={0}
+              angle={-15}
+              textAnchor="end"
+              height={70}
+              label={xAxisTitle("Metric")}
+            />
+            <YAxis tickFormatter={formatChartNumber} label={yAxisTitle("Value")} />
             <Tooltip formatter={(value) => formatChartNumber(value)} />
             <Legend />
             <Bar dataKey="avOnly" name="AV Only" fill={CHART_COLORS.nac} radius={[4, 4, 0, 0]} />

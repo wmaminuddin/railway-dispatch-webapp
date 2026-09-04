@@ -12,7 +12,7 @@ import {
 import type { DailySnapshot } from "@railway/shared";
 import { formatChartNumber, formatNumber } from "../../utils/formatNumber";
 import { ChartCard } from "./ChartCard";
-import { CHART_COLORS, toInventoryPoints } from "./utils/chartData";
+import { CHART_COLORS, CHART_MARGIN, toInventoryPoints, xAxisTitle, yAxisTitle } from "./utils/chartData";
 
 type Props = {
   days: DailySnapshot[];
@@ -57,14 +57,15 @@ export function InventoryFlowChart({ days, sftCapacity, selectedDay, onSelectDay
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
+            margin={CHART_MARGIN}
             onClick={(state) => {
               const day = Number((state as { activeLabel?: string | number })?.activeLabel);
               if (!Number.isNaN(day) && onSelectDay) onSelectDay(day);
             }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="day" label={{ value: "Day", position: "insideBottom", offset: -2 }} />
-            <YAxis tickFormatter={formatChartNumber} />
+            <XAxis dataKey="day" label={xAxisTitle("Day")} />
+            <YAxis tickFormatter={formatChartNumber} label={yAxisTitle("Cars")} />
             <Tooltip formatter={(value) => formatChartNumber(value)} />
             <Legend />
             <ReferenceLine

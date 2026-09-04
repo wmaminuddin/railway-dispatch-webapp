@@ -585,7 +585,8 @@ export const HELP: Record<string, HelpEntry> = {
   },
   chartTimeline: {
     title: "Cycle Timeline",
-    meaning: "Gantt of load events. Parallel Paya unload can overlap EM travel; mixed unload blocks onward move.",
+    meaning:
+      "Gantt of load events for a selected train (L1/L2/…). Set process start to shift displayed clock times; durations are shown in hours beside each bar.",
     impact: "Explains average/max cycle and waiting for EC wagon pickup."
   },
   selectedLoad: {

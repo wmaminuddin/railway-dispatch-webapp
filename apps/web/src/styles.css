@@ -124,6 +124,30 @@ body {
   margin-bottom: 2px;
 }
 
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  accent-color: var(--accent);
+}
+
+.slider-value {
+  min-width: 1.75rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  font-weight: 600;
+}
+
 th.label-with-help {
   display: table-cell;
   white-space: nowrap;
@@ -176,12 +200,7 @@ th.label-with-help {
 }
 
 .info-tooltip-panel {
-  position: absolute;
-  z-index: 40;
-  top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(320px, 70vw);
+  width: min(320px, calc(100vw - 16px));
   background: #0f172a;
   color: #f8fafc;
   border-radius: 10px;
@@ -190,17 +209,35 @@ th.label-with-help {
   text-align: left;
   font-weight: 400;
   white-space: normal;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+
+.info-tooltip-panel--fixed {
+  position: fixed;
+  z-index: 1200;
+  margin: 0;
 }
 
 .info-tooltip-panel::before {
   content: "";
   position: absolute;
-  top: -6px;
-  left: 50%;
+  left: var(--tooltip-arrow-left, 50%);
   transform: translateX(-50%);
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
+}
+
+.info-tooltip-panel.is-below::before {
+  top: -6px;
   border-bottom: 6px solid #0f172a;
+}
+
+.info-tooltip-panel.is-above::before {
+  bottom: -6px;
+  border-top: 6px solid #0f172a;
 }
 
 .info-tooltip-title {
@@ -646,6 +683,28 @@ tbody tr.selected {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f8fafc;
+}
+
+.timeline-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.timeline-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.88rem;
+  color: var(--muted);
+  min-width: 140px;
+}
+
+.timeline-control select,
+.timeline-control input[type="time"] {
+  min-width: 160px;
 }
 
 .consist-svg,

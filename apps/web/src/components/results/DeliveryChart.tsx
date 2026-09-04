@@ -12,7 +12,7 @@ import {
 import type { DailySnapshot } from "@railway/shared";
 import { formatChartNumber } from "../../utils/formatNumber";
 import { ChartCard } from "./ChartCard";
-import { CHART_COLORS, toDeliveryPoints } from "./utils/chartData";
+import { CHART_COLORS, CHART_MARGIN_DUAL_Y, toDeliveryPoints, xAxisTitle, yAxisTitle } from "./utils/chartData";
 
 type Props = {
   days: DailySnapshot[];
@@ -35,19 +35,25 @@ export function DeliveryChart({ days, selectedDay, onSelectDay }: Props) {
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={data}
+            margin={CHART_MARGIN_DUAL_Y}
             onClick={(state) => {
               const day = Number((state as { activeLabel?: string | number })?.activeLabel);
               if (!Number.isNaN(day) && onSelectDay) onSelectDay(day);
             }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="day" />
-            <YAxis yAxisId="left" tickFormatter={formatChartNumber} />
+            <XAxis dataKey="day" label={xAxisTitle("Day")} />
+            <YAxis
+              yAxisId="left"
+              tickFormatter={formatChartNumber}
+              label={yAxisTitle("Cars delivered")}
+            />
             <YAxis
               yAxisId="right"
               orientation="right"
               allowDecimals={false}
               tickFormatter={formatChartNumber}
+              label={yAxisTitle("Departures", "right")}
             />
             <Tooltip formatter={(value) => formatChartNumber(value)} />
             <Legend />

@@ -28,6 +28,26 @@ export const CHART_COLORS = {
   kuantanPort: "#d97706"
 };
 
+const AXIS_LABEL_STYLE = { fill: "#5b6b7c", fontSize: 12 };
+
+/** Shared chart margins so axis titles stay visible above legends/edges. */
+export const CHART_MARGIN = { top: 10, right: 18, left: 18, bottom: 28 };
+export const CHART_MARGIN_DUAL_Y = { top: 10, right: 36, left: 18, bottom: 28 };
+
+export const xAxisTitle = (value: string) => ({
+  value,
+  position: "insideBottom" as const,
+  offset: -2,
+  style: AXIS_LABEL_STYLE
+});
+
+export const yAxisTitle = (value: string, side: "left" | "right" = "left") => ({
+  value,
+  angle: -90,
+  position: (side === "left" ? "insideLeft" : "insideRight") as "insideLeft" | "insideRight",
+  style: { ...AXIS_LABEL_STYLE, textAnchor: "middle" as const }
+});
+
 export type InventoryPoint = {
   day: number;
   nacBacklog: number;
@@ -211,6 +231,33 @@ export const normalizeTimelineEvents = (events: LoadEvent[]) => {
   const start = Math.min(...events.map((e) => e.startMinute));
   const end = Math.max(...events.map((e) => e.endMinute), start + 1);
   return { events, start, end, span: Math.max(1, end - start) };
+};
+
+/** Convert simulation minutes to hours, rounded to 2 decimals. */
+export const minutesToHours = (minutes: number): number => Math.round((minutes / 60) * 100) / 100;
+
+/** Format a minute-of-day value as HH:MM (24h). */
+export const minutesToClock = (totalMinutes: number): string => {
+  const m = ((Math.round(totalMinutes) % 1440) + 1440) % 1440;
+  const hh = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+};
+
+/** Parse HH:MM into minutes from midnight. */
+export const clockToMinutes = (clock: string): number => {
+  const [hRaw, mRaw] = clock.split(":");
+  const h = Number(hRaw);
+  const m = Number(mRaw);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return 0;
+  return h * 60 + m;
+};
+
+/** Default process start clock from the earliest event in a load cycle. */
+export const defaultProcessStartClock = (events: LoadEvent[]): string => {
+  if (!events.length) return "08:00";
+  const start = Math.min(...events.map((e) => e.startMinute));
+  return minutesToClock(start);
 };
 
 export const bottleneckSite = (manpower: SiteManpowerKpi[]): SiteManpowerKpi | null => {

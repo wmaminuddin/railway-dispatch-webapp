@@ -12,7 +12,7 @@ import {
 import type { InventorySample } from "@railway/shared";
 import { formatChartNumber, formatNumber } from "../../utils/formatNumber";
 import { ChartCard } from "./ChartCard";
-import { CHART_COLORS, toHourlySiteInventory } from "./utils/chartData";
+import { CHART_COLORS, CHART_MARGIN, toHourlySiteInventory, xAxisTitle, yAxisTitle } from "./utils/chartData";
 
 type Props = {
   timeline: InventorySample[];
@@ -38,13 +38,10 @@ export function HourlySiteInventoryChart({
     >
       <div className="chart-frame chart-frame-tall">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
+          <LineChart data={data} margin={CHART_MARGIN}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis
-              dataKey="hour"
-              label={{ value: "Hour (sim)", position: "insideBottom", offset: -2 }}
-            />
-            <YAxis tickFormatter={formatChartNumber} />
+            <XAxis dataKey="hour" label={xAxisTitle("Hour (sim)")} />
+            <YAxis tickFormatter={formatChartNumber} label={yAxisTitle("Cars")} />
             <Tooltip
               labelFormatter={(hour, payload) => {
                 const row = payload?.[0]?.payload as

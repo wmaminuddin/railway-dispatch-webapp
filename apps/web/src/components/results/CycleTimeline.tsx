@@ -1,38 +1,85 @@
+import { useEffect, useState } from "react";
 import type { TrainLoadLog } from "@railway/shared";
-import { formatNumber } from "../../utils/formatNumber";
+import { formatFixed, formatNumber } from "../../utils/formatNumber";
 import { ChartCard } from "./ChartCard";
-import { normalizeTimelineEvents, timelineEventColor } from "./utils/chartData";
+import {
+  clockToMinutes,
+  defaultProcessStartClock,
+  minutesToClock,
+  minutesToHours,
+  normalizeTimelineEvents,
+  timelineEventColor
+} from "./utils/chartData";
 
 type Props = {
-  load: TrainLoadLog | null | undefined;
+  loads: TrainLoadLog[];
+  selectedLoadId: string | null;
+  onSelectLoad: (id: string) => void;
 };
 
-export function CycleTimeline({ load }: Props) {
-  if (!load || !load.events.length) {
-    return <div className="chart-empty">Select a load to view the cycle timeline.</div>;
+const formatHours = (minutes: number) => `${formatFixed(minutesToHours(minutes), 2)} h`;
+
+export function CycleTimeline({ loads, selectedLoadId, onSelectLoad }: Props) {
+  const load = loads.find((l) => l.id === selectedLoadId) ?? loads[0] ?? null;
+  const [processStartTime, setProcessStartTime] = useState("08:00");
+
+  useEffect(() => {
+    if (!load?.events.length) return;
+    setProcessStartTime(defaultProcessStartClock(load.events));
+  }, [load]);
+
+  if (!loads.length || !load || !load.events.length) {
+    return <div className="chart-empty">Run a simulation with departures to view the cycle timeline.</div>;
   }
 
   const { events, start, span } = normalizeTimelineEvents(load.events);
-  const width = 760;
-  const rowH = 28;
+  const baseClockMinutes = clockToMinutes(processStartTime);
+  const width = 920;
+  const rowH = 32;
   const top = 28;
   const left = 170;
-  const rightPad = 24;
+  const rightPad = 168;
   const usable = width - left - rightPad;
   const height = top + events.length * rowH + 24;
 
   return (
     <ChartCard
-      title={`Cycle Timeline — ${load.id}`}
+      title="Cycle Timeline"
       subtitle={
         <>
-          Total cycle {formatNumber(load.cycleMinutes)} min · mixed-wagon block{" "}
-          {formatNumber(load.mixedWagonBlockingMinutes)} min
+          {load.id} · total cycle {formatHours(load.cycleMinutes)} · mixed-wagon block{" "}
+          {formatHours(load.mixedWagonBlockingMinutes)}
         </>
       }
       helpKey="chartTimeline"
       helpLabel="Cycle Timeline"
     >
+      <div className="timeline-controls">
+        <label className="timeline-control">
+          <span>Load</span>
+          <select
+            value={load.id}
+            onChange={(e) => onSelectLoad(e.target.value)}
+            aria-label="Select cycle timeline load"
+          >
+            {loads.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.id} · Day {l.day} · {formatNumber(l.wagonCount)} wagons
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="timeline-control">
+          <span>Process start</span>
+          <input
+            type="time"
+            value={processStartTime}
+            onChange={(e) => setProcessStartTime(e.target.value || "00:00")}
+            aria-label="Process start time"
+          />
+        </label>
+      </div>
+
       <div className="timeline-wrap">
         <svg viewBox={`0 0 ${width} ${height}`} className="timeline-svg" role="img" aria-label="Train cycle timeline">
           {events.map((e, idx) => {
@@ -40,22 +87,32 @@ export function CycleTimeline({ load }: Props) {
             const x = left + ((e.startMinute - start) / span) * usable;
             const w = Math.max(3, ((e.endMinute - e.startMinute) / span) * usable);
             const color = timelineEventColor(e.type);
-            const duration = Math.round((e.endMinute - e.startMinute) * 10) / 10;
+            const durationMin = e.endMinute - e.startMinute;
+            const durationLabel = formatHours(durationMin);
+            const clockStart = minutesToClock(baseClockMinutes + (e.startMinute - start));
+            const clockEnd = minutesToClock(baseClockMinutes + (e.endMinute - start));
+            const intervalLabel = `${clockStart}–${clockEnd}`;
             return (
               <g key={`${e.type}-${idx}`}>
-                <text x={8} y={y + 16} fontSize="10" fill="#334155">
+                <text x={8} y={y + 18} fontSize="10" fill="#334155">
                   {e.type.replace(/_/g, " ")}
                 </text>
-                <rect x={x} y={y + 4} width={w} height={18} rx={4} fill={color} opacity={0.9}>
+                <rect x={x} y={y + 6} width={w} height={18} rx={4} fill={color} opacity={0.9}>
                   <title>
-                    {e.description} ({formatNumber(duration)} min)
+                    {e.description} · {intervalLabel} · {durationLabel}
                   </title>
                 </rect>
-                {w > 40 && (
-                  <text x={x + 6} y={y + 16} fontSize="9" fill="#fff">
-                    {formatNumber(duration)}m
+                {w > 56 && (
+                  <text x={x + 6} y={y + 18} fontSize="9" fill="#fff">
+                    {durationLabel}
                   </text>
                 )}
+                <text x={width - 8} y={y + 12} fontSize="9" fill="#64748b" textAnchor="end">
+                  {intervalLabel}
+                </text>
+                <text x={width - 8} y={y + 24} fontSize="10" fill="#122033" textAnchor="end" fontWeight="600">
+                  {durationLabel}
+                </text>
               </g>
             );
           })}

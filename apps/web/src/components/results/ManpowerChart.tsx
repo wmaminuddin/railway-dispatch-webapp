@@ -11,7 +11,7 @@ import {
 import type { SiteManpowerKpi } from "@railway/shared";
 import { formatChartNumber, formatNumber } from "../../utils/formatNumber";
 import { ChartCard } from "./ChartCard";
-import { bottleneckSite, CHART_COLORS } from "./utils/chartData";
+import { bottleneckSite, CHART_COLORS, CHART_MARGIN_DUAL_Y, xAxisTitle, yAxisTitle } from "./utils/chartData";
 
 type Props = {
   manpower: SiteManpowerKpi[];
@@ -37,11 +37,20 @@ export function ManpowerChart({ manpower }: Props) {
     >
       <div className="chart-frame">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={manpower}>
+          <BarChart data={manpower} margin={CHART_MARGIN_DUAL_Y}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="site" />
-            <YAxis yAxisId="left" tickFormatter={formatChartNumber} />
-            <YAxis yAxisId="right" orientation="right" tickFormatter={formatChartNumber} />
+            <XAxis dataKey="site" label={xAxisTitle("Site")} />
+            <YAxis
+              yAxisId="left"
+              tickFormatter={formatChartNumber}
+              label={yAxisTitle("Handling hours")}
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              tickFormatter={formatChartNumber}
+              label={yAxisTitle("Cars / Eff. min", "right")}
+            />
             <Tooltip formatter={(value) => formatChartNumber(value)} />
             <Legend />
             <Bar

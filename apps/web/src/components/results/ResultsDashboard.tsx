@@ -81,7 +81,11 @@ export function ResultsDashboard({
 
       <div className="dashboard-grid">
         <TrainConsistDiagram load={selectedLoad} stationLengthMeters={stationLength} />
-        <CycleTimeline load={selectedLoad} />
+        <CycleTimeline
+          loads={result.loads}
+          selectedLoadId={selectedLoadId}
+          onSelectLoad={onSelectLoad}
+        />
       </div>
     </section>
   );

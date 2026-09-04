@@ -564,25 +564,43 @@ export function App() {
             />
           </Field>
           <Field label="SFT loading manpower (pax)" helpKey="sftManpower">
-            <input
-              type="number"
-              value={assumptions.teams.sftLoadingTeam}
-              onChange={(e) => patch("teams", { ...assumptions.teams, sftLoadingTeam: num(e.target.value) })}
-            />
+            <div className="slider-row">
+              <input
+                type="range"
+                min={1}
+                max={20}
+                step={1}
+                value={assumptions.teams.sftLoadingTeam}
+                onChange={(e) => patch("teams", { ...assumptions.teams, sftLoadingTeam: num(e.target.value) })}
+              />
+              <span className="slider-value">{assumptions.teams.sftLoadingTeam}</span>
+            </div>
           </Field>
           <Field label="Paya Besar unloading manpower (pax)" helpKey="payaManpower">
-            <input
-              type="number"
-              value={assumptions.teams.payaBesarTeam}
-              onChange={(e) => patch("teams", { ...assumptions.teams, payaBesarTeam: num(e.target.value) })}
-            />
+            <div className="slider-row">
+              <input
+                type="range"
+                min={1}
+                max={20}
+                step={1}
+                value={assumptions.teams.payaBesarTeam}
+                onChange={(e) => patch("teams", { ...assumptions.teams, payaBesarTeam: num(e.target.value) })}
+              />
+              <span className="slider-value">{assumptions.teams.payaBesarTeam}</span>
+            </div>
           </Field>
           <Field label="Kuantan Port unloading manpower (pax)" helpKey="kuantanManpower">
-            <input
-              type="number"
-              value={assumptions.teams.kuantanPortTeam}
-              onChange={(e) => patch("teams", { ...assumptions.teams, kuantanPortTeam: num(e.target.value) })}
-            />
+            <div className="slider-row">
+              <input
+                type="range"
+                min={1}
+                max={20}
+                step={1}
+                value={assumptions.teams.kuantanPortTeam}
+                onChange={(e) => patch("teams", { ...assumptions.teams, kuantanPortTeam: num(e.target.value) })}
+              />
+              <span className="slider-value">{assumptions.teams.kuantanPortTeam}</span>
+            </div>
           </Field>
         </section>
       </div>

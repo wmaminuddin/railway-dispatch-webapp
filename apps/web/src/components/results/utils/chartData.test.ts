@@ -9,6 +9,10 @@ import type {
 import {
   bottleneckSite,
   classifyWagons,
+  clockToMinutes,
+  defaultProcessStartClock,
+  minutesToClock,
+  minutesToHours,
   normalizeTimelineEvents,
   timelineEventColor,
   toComparisonPoints,
@@ -49,6 +53,15 @@ describe("chart data transforms", () => {
       sftAfterTransfer: 60,
       sftCapacity: 700
     });
+  });
+
+  it("converts minutes to hours and clock labels", () => {
+    expect(minutesToHours(90)).toBe(1.5);
+    expect(minutesToClock(90)).toBe("01:30");
+    expect(clockToMinutes("09:15")).toBe(9 * 60 + 15);
+    expect(defaultProcessStartClock([{ type: "SFT_LOADING", startMinute: 125, endMinute: 140, description: "" }])).toBe(
+      "02:05"
+    );
   });
 
   it("builds delivery points", () => {
